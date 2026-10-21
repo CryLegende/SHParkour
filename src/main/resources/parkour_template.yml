@@ -1,0 +1,69 @@
+# Fichier de configuration pour un parcours SHParkour
+# Ne pas editer ce fichier directement. Il sert de modele.
+
+display-name: "Nouveau Parcours"
+
+# --- Locations ---
+# Ces valeurs seront remplies par les commandes de setup.
+start: null
+end: null
+respawn: null
+end-spawn: null
+checkpoints: []
+
+max-time: 600 # (10 minutes par defaut)
+
+# --- Configuration des plaques de pression ---
+# Vous pouvez utiliser n'importe quel type de plaque de pression de Minecraft.
+# Exemples: STONE_PRESSURE_PLATE, OAK_PRESSURE_PLATE,
+# HEAVY_WEIGHTED_PRESSURE_PLATE (Or), LIGHT_WEIGHTED_PRESSURE_PLATE (Fer)
+plates:
+  start: "HEAVY_WEIGHTED_PRESSURE_PLATE"
+  checkpoint: "STONE_PRESSURE_PLATE"
+  end: "LIGHT_WEIGHTED_PRESSURE_PLATE"
+
+# --- Hologrammes (FancyHolograms) ---
+holograms:
+  start:
+    enabled: true
+    offset-y: 1.5
+    lines:
+      - "&b&l{parkour_display_name}"
+      - "&7Sautez sur la plaque pour commencer !"
+      - "&eVotre meilleur temps: %shparkour_{parkour_name}_time_formatted%"
+  checkpoint:
+    enabled: true
+    offset-y: 1.5
+    lines:
+      - "&a&lCheckpoint #{checkpoint_index}"
+      - "&7Continuez, vous y etes presque !"
+  end:
+    enabled: true
+    offset-y: 1.5
+    lines:
+      - "&a&lFINISH"
+      - "&b&l{parkour_display_name}"
+      - "&6&l--- Top 3 ---"
+      - "&e#1 &7%shparkour_{parkour_name}_top_1_name% &f- &b%shparkour_{parkour_name}_top_1_time%"
+      - "&6#2 &7%shparkour_{parkour_name}_top_2_name% &f- &b%shparkour_{parkour_name}_top_2_time%"
+      - "&e#3 &7%shparkour_{parkour_name}_top_3_name% &f- &b%shparkour_{parkour_name}_top_3_time%"
+
+# --- Recompenses de ligne d'arrivee ---
+rewards:
+  enabled: true
+  first-time-only: true
+  commands:
+    - "eco give {player} 100"
+    - "say {player} a termine le parcours {parkour_display_name} !"
+
+# --- Recompenses de checkpoint (optionnel) ---
+# Placeholders disponibles ici:
+# - {player}
+# - {parkour_display_name}
+# - {checkpoint_index}
+checkpoint-rewards:
+  enabled: false
+  first-time-only: true
+  commands:
+    - "eco give {player} 10"
+    - "say {player} a atteint le checkpoint #{checkpoint_index} sur {parkour_display_name}"

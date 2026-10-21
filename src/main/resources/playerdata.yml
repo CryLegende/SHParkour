@@ -1,0 +1,44 @@
+# Fichier de configuration pour un parcours SHParkour
+# Ne pas éditer ce fichier directement. Il sert de modèle.
+
+display-name: "Nouveau Parcours"
+
+# --- Locations ---
+# Ces valeurs seront remplies par les commandes de setup.
+spawn: null
+end: null
+respawn: null
+end-spawn: null
+checkpoints: []
+
+# --- Hologrammes (FancyHolograms) ---
+# Vous pouvez utiliser des placeholders de PlaceholderAPI ici.
+# {player_name}, {player_displayname}
+# {shparkour_<nom_interne>_best_time_formatted} - Meilleur temps du joueur
+# {shparkour_<nom_interne>_top_1_name} - Nom du joueur #1
+# {shparkour_<nom_interne>_top_1_time} - Temps du joueur #1
+# (etc. pour le top 10)
+holograms:
+  start:
+    enabled: true
+    offset-y: 1.5 # Hauteur au-dessus du bloc de start
+    lines:
+      - "&b&l{parkour_display_name}"
+      - "&7Sautez sur la plaque pour commencer !"
+      - "&eVotre meilleur temps: %shparkour_{parkour_name}_time_formatted%"
+  checkpoint:
+    enabled: true
+    offset-y: 1.5
+    lines:
+      - "&a&lCheckpoint #{checkpoint_index}"
+      - "&7Continuez, vous y êtes presque !"
+  end:
+    enabled: true
+    offset-y: 1.5
+    lines:
+      - "&a&l🏁 FINISH 🏁"
+      - "&b&l{parkour_display_name}"
+      - "&6&l--- Top 3 ---"
+      - "&e#1 &7%shparkour_{parkour_name}_top_1_name% &f- &b%shparkour_{parkour_name}_top_1_time%"
+      - "&6#2 &7%shparkour_{parkour_name}_top_2_name% &f- &b%shparkour_{parkour_name}_top_2_time%"
+      - "&e#3 &7%shparkour_{parkour_name}_top_3_name% &f- &b%shparkour_{parkour_name}_top_3_time%"

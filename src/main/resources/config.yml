@@ -1,0 +1,92 @@
+# Configuration principale de SHParkour
+
+# Préfixe utilisé dans les messages du plugin
+prefix: "" # Le préfixe global est géré par message individuel
+
+# Messages configurables
+messages:
+  no-permission: "&7&l« &c&lSH &8&l» &7Vous n'avez pas la permission d'exécuter cette commande."
+  player-only: "&7&l« &c&lSH &8&l» &7Cette commande ne peut être exécutée que par un joueur."
+  parkour-not-found: "&7&l« &c&lSH &8&l» &7Le parcours '&c{parkour}&7' n'a pas été trouvé."
+  parkour-already-exists: "&7&l« &c&lSH &8&l» &7Un parcours avec le nom '&c{parkour}&7' existe déjà."
+  parkour-created: "&7&l« &a&lSH &8&l» &7Le parcours '&a{parkour}&7' a été créé ! Utilisez &b/parkour setup {parkour} &7pour le configurer."
+  parkour-deleted: "&7&l« &a&lSH &8&l» &7Le parcours '&a{parkour}&7' a été supprimé."
+  parkour-reloaded: "&7&l« &a&lSH &8&l» &7La configuration des parcours a été rechargée &aavec succès&7."
+  reset-time-success: "&7&l« &a&lSH &8&l» &7Le temps du joueur &a{player} &7sur le parcours &b{parkour} &7a été réinitialisé &aavec succès&7."
+  reset-time-no-time: "&7&l« &c&lSH &8&l» &7Le joueur &c{player} &7n'a pas de temps enregistré sur le parcours &b{parkour}&7."
+  player-not-found-for-reset: "&7&l« &c&lSH &8&l» &7Le joueur &c{player} &7n'a pas été trouvé ou n'a jamais joué sur le serveur."
+
+  # Messages de setup
+  setup:
+    set-start: "&7&l« &a&lSH &8&l» &7Le spawn du parcours '&a{parkour}&7' a été défini à votre position."
+    set-end: "&7&l« &a&lSH &8&l» &7La fin du parcours '&a{parkour}&7' a été définie à votre position."
+    add-checkpoint: "&7&l« &a&lSH &8&l» &7Checkpoint &a#{index} &7ajouté au parcours '&a{parkour}&7'."
+    set-respawn: "&7&l« &a&lSH &8&l» &7Le point de respawn (en cas de chute) a été défini."
+    set-endspawn: "&7&l« &a&lSH &8&l» &7Le point de téléportation de fin a été défini."
+    set-displayname: "&7&l« &a&lSH &8&l» &7Le nom d'affichage du parcours a été changé pour '&a{name}&7'."
+
+  # Messages en jeu (ces messages sont souvent affichés directement au joueur, sans le préfixe lourd)
+  parkour-join: "&7&l« &e&lSH &8&l» &7Vous avez commencé le parcours &e{parkour}&7."
+  parkour-leave: "&7&l« &e&lSH &8&l» &7Vous avez quitté le parcours &e{parkour}&7."
+  parkour-finish: "&7&l« &a&lSH &8&l» &7Félicitations ! Vous avez terminé le parcours &b{parkour} &7en &a{time}&7."
+  new-best-time: "&7&l« &a&lSH &8&l» &7Nouveau record personnel ! Votre nouveau meilleur temps est &a{time}&7."
+  checkpoint-reached: "&7&l« &a&lSH &8&l» &7Checkpoint &a#{index} &7atteint !"
+
+  # Messages de protection
+  protection:
+    fly-denied: "&7&l« &c&lSH &8&l» &7Le vol est désactivé pendant un parcours."
+    teleport-denied: "&7&l« &c&lSH &8&l» &7La téléportation est désactivée pendant un parcours."
+    effects-denied: "&7&l« &c&lSH &8&l» &7Les effets de potions sont désactivés pendant un parcours."
+    item-use-denied: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas utiliser cet objet pendant un parcours."
+    command-denied: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas utiliser cette commande pendant un parcours."
+
+# Format de l'actionbar affichant le temps
+actionbar-format: "&b&lPARKOUR {parkour_display_name} &r&8| &7Temps: &f{time}"
+
+fall-protection:
+  enabled: true
+  # Le nombre de blocs que le joueur peut chuter en dessous de son dernier point de respawn
+  # avant d'être téléporté. Mettre à 0 pour désactiver.
+  max-fall-distance: 15.0
+
+# Commandes bloquées pendant le parkour (en minuscules)
+allowed-commands:
+  - "m"
+  - "mp"
+  - "message"
+  - "msg"
+  - "r"
+  - "reply"
+  - "mess"
+
+# Items donnés au joueur pendant le parkour
+# Slots: 0-8 pour la barre d'inventaire
+parkour-items:
+  checkpoint:
+    enabled: true
+    slot: 3
+    material: "LIGHT_WEIGHTED_PRESSURE_PLATE"
+    name: "&aDernier Checkpoint"
+    lore:
+      - "&7Cliquez pour vous téléporter."
+  restart:
+    enabled: true
+    slot: 4
+    material: "OAK_DOOR"
+    name: "&6Recommencer le parcours"
+    lore:
+      - "&7Cliquez pour retourner au début."
+  leave:
+    enabled: true
+    slot: 5
+    material: "RED_BED"
+    name: "&cQuitter le parcours"
+    lore:
+      - "&7Cliquez pour abandonner."
+  toggle-players:
+    enabled: true
+    slot: 8
+    material: "LIME_DYE" # Sera GRAY_DYE quand les joueurs sont cachés
+    name: "&aCacher les joueurs"
+    lore:
+      - "&7Cliquez pour changer la visibilité."
