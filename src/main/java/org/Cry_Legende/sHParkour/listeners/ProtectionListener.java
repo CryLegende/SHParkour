@@ -86,11 +86,11 @@ public class ProtectionListener implements Listener {
         Player player = event.getPlayer();
         if (parkourManager.isInParkour(player)) {
             if (player.hasPotionEffect(PotionEffectType.SPEED) ||
-                player.hasPotionEffect(PotionEffectType.JUMP) ||
+                player.hasPotionEffect(PotionEffectType.JUMP_BOOST) ||
                 player.hasPotionEffect(PotionEffectType.LEVITATION) ||
                 player.hasPotionEffect(PotionEffectType.SLOW_FALLING)) {
                 player.removePotionEffect(PotionEffectType.SPEED);
-                player.removePotionEffect(PotionEffectType.JUMP);
+                player.removePotionEffect(PotionEffectType.JUMP_BOOST);
                 player.removePotionEffect(PotionEffectType.LEVITATION);
                 player.removePotionEffect(PotionEffectType.SLOW_FALLING);
                 player.sendMessage(plugin.getConfigManager().getMessage("protection.effects-denied"));

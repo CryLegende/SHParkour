@@ -101,7 +101,7 @@ public class PlayerState {
 
         // --- CORRECTION APPLIQUÉE ICI ---
         // On récupère la vie maximale autorisée pour le joueur au moment de la restauration
-        double maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+        double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
         // On s'assure que la vie à restaurer ne dépasse pas ce maximum
         double healthToRestore = Math.min(this.health, maxHealth);
         player.setHealth(healthToRestore);
