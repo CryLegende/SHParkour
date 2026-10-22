@@ -42,9 +42,13 @@ Utilisé sur : **Opale**.
 
 ## Configuration
 
-Fichiers par défaut repris du serveur (secrets remplacés par `CHANGE_ME`) :
+Fichiers par défaut repris du serveur (secrets remplacés par `CHANGE_ME`). Cliquez sur un fichier pour l'ouvrir :
 
-- `config.yml`
+<pre>
+plugins/SHParkour/
+├── <a href="src/main/resources/config.yml">config.yml</a>
+└── <a href="src/main/resources/parkour_template.yml">parkour_template.yml</a>
+</pre>
 
 ## Compilation
 
