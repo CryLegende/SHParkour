@@ -39,4 +39,20 @@ public class LocationUtil {
             return null;
         }
     }
+
+    /**
+     * Nom du monde d'une position sérialisée, sans exiger que ce monde soit chargé.
+     *
+     * @return le nom du monde, ou null si la chaîne est vide ou mal formée.
+     */
+    public static String worldName(String s) {
+        if (s == null || s.trim().isEmpty()) {
+            return null;
+        }
+        String[] parts = s.split(";");
+        if (parts.length != 6 || parts[0].isEmpty()) {
+            return null;
+        }
+        return parts[0];
+    }
 }

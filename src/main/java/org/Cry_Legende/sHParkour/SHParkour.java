@@ -76,6 +76,7 @@ public final class SHParkour extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ProtectionListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerConnectionListener(this), this);
         getServer().getPluginManager().registerEvents(new HologramVisibilityListener(this), this);
+        getServer().getPluginManager().registerEvents(new WorldListener(this), this);
 
         new ParkourExpansion(this).register();
         blockManager.startIntegrityCheck();

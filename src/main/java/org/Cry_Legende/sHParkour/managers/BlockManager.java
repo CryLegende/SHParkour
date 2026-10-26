@@ -4,6 +4,8 @@ import org.Cry_Legende.sHParkour.SHParkour;
 import org.Cry_Legende.sHParkour.objects.Parkour;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.scheduler.BukkitRunnable;
 
 public class BlockManager {
@@ -15,39 +17,58 @@ public class BlockManager {
     }
 
     public void placeParkourBlocks(Parkour parkour) {
-        if (parkour.getStart() != null && parkour.getStartPlate() != null) {
-            parkour.getStart().getBlock().setType(parkour.getStartPlate());
-        }
-        if (parkour.getEnd() != null && parkour.getEndPlate() != null) {
-            parkour.getEnd().getBlock().setType(parkour.getEndPlate());
-        }
+        placeParkourBlocks(parkour, true);
+    }
+
+    /**
+     * @param loadChunks false pour la vérification périodique : les chunks non chargés sont ignorés
+     *                   au lieu d'être chargés de force toutes les 10 secondes.
+     */
+    private void placeParkourBlocks(Parkour parkour, boolean loadChunks) {
+        placePlate(parkour.getStart(), parkour.getStartPlate(), loadChunks);
+        placePlate(parkour.getEnd(), parkour.getEndPlate(), loadChunks);
         for (Location checkpointLoc : parkour.getCheckpoints()) {
-            if (checkpointLoc != null && parkour.getCheckpointPlate() != null) {
-                checkpointLoc.getBlock().setType(parkour.getCheckpointPlate());
-            }
+            placePlate(checkpointLoc, parkour.getCheckpointPlate(), loadChunks);
+        }
+    }
+
+    private void placePlate(Location location, Material plate, boolean loadChunks) {
+        if (location == null || plate == null) {
+            return;
+        }
+        // Monde absent : le parcours est remis en place au chargement du monde (ParkourManager).
+        World world = location.getWorld();
+        if (world == null) {
+            return;
+        }
+        if (!loadChunks && !world.isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
+            return;
+        }
+        Block block = location.getBlock();
+        // Pas de setType si la plaque est déjà là : il remettrait à zéro une plaque enfoncée.
+        if (block.getType() != plate) {
+            block.setType(plate);
         }
     }
 
     public void removeParkourBlocks(Parkour parkour) {
-        if (parkour.getStart() != null && parkour.getStart().getBlock().getType() == parkour.getStartPlate()) {
-            parkour.getStart().getBlock().setType(Material.AIR);
-        }
-        if (parkour.getEnd() != null && parkour.getEnd().getBlock().getType() == parkour.getEndPlate()) {
-            parkour.getEnd().getBlock().setType(Material.AIR);
-        }
+        removePlate(parkour.getStart(), parkour.getStartPlate());
+        removePlate(parkour.getEnd(), parkour.getEndPlate());
         for (Location checkpointLoc : parkour.getCheckpoints()) {
-            if (checkpointLoc != null && checkpointLoc.getBlock().getType() == parkour.getCheckpointPlate()) {
-                checkpointLoc.getBlock().setType(Material.AIR);
-            }
+            removePlate(checkpointLoc, parkour.getCheckpointPlate());
         }
     }
 
     public void removeCheckpointPlate(Parkour parkour, Location checkpointLocation) {
-        if (checkpointLocation == null || parkour.getCheckpointPlate() == null) {
+        removePlate(checkpointLocation, parkour.getCheckpointPlate());
+    }
+
+    private void removePlate(Location location, Material plate) {
+        if (location == null || plate == null || location.getWorld() == null) {
             return;
         }
-        if (checkpointLocation.getBlock().getType() == parkour.getCheckpointPlate()) {
-            checkpointLocation.getBlock().setType(Material.AIR);
+        if (location.getBlock().getType() == plate) {
+            location.getBlock().setType(Material.AIR);
         }
     }
 
@@ -56,7 +77,7 @@ public class BlockManager {
             @Override
             public void run() {
                 for (Parkour parkour : plugin.getParkourManager().getAllParkours()) {
-                    placeParkourBlocks(parkour);
+                    placeParkourBlocks(parkour, false);
                 }
             }
         }.runTaskTimer(plugin, 100L, 200L);

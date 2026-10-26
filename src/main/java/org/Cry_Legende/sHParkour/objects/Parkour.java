@@ -4,6 +4,7 @@ import org.Cry_Legende.sHParkour.SHParkour;
 import org.Cry_Legende.sHParkour.utils.LocationUtil;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -147,6 +148,21 @@ public class Parkour {
 
     public long getMaxTime() {
         return maxTime;
+    }
+
+    /** Vrai si une des positions du parcours se trouve dans ce monde. */
+    public boolean usesWorld(World world) {
+        List<Location> locations = new ArrayList<>(checkpoints);
+        locations.add(start);
+        locations.add(end);
+        locations.add(respawn);
+        locations.add(endSpawn);
+        for (Location location : locations) {
+            if (location != null && world.equals(location.getWorld())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Setters

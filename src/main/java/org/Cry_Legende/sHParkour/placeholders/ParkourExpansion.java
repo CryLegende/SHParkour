@@ -53,7 +53,9 @@ public class ParkourExpansion extends PlaceholderExpansion {
             return null; // Format de placeholder invalide
         }
 
-        String parkourName = parts[0];
+        // Tout ce qui précède "_time_" : un nom de parcours peut lui-même contenir des "_".
+        int timeIndex = params.lastIndexOf("_time_");
+        String parkourName = timeIndex > 0 ? params.substring(0, timeIndex) : parts[0];
         String requestType = parts[parts.length - 1]; // "formatted", "ms", ou "name"/"time" pour le top
 
         // --- Placeholders de temps personnel ---

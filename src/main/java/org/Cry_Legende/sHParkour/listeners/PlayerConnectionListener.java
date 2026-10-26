@@ -41,6 +41,6 @@ public class PlayerConnectionListener implements Listener {
             parkourManager.endParkour(player, false);
         }
 
-        playerDataManager.savePlayerData();
+        playerDataManager.savePlayerDataAsync();
     }
 }

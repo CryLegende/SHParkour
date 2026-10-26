@@ -7,6 +7,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -24,6 +26,12 @@ public class PlayerDataManager {
 
     private final Map<UUID, Map<String, Long>> bestTimes = new ConcurrentHashMap<>();
     private final Map<UUID, Map<String, Set<Integer>>> claimedCheckpointRewards = new ConcurrentHashMap<>();
+
+    // Sauvegardes : dirty et saveSequence sur le thread principal, writtenSequence sous writeLock.
+    private final Object writeLock = new Object();
+    private boolean dirty;
+    private long saveSequence;
+    private long writtenSequence;
 
     public PlayerDataManager(SHParkour plugin) {
         this.plugin = plugin;
@@ -114,10 +122,49 @@ public class PlayerDataManager {
         }
     }
 
+    /** Sauvegarde synchrone (arrêt du plugin, commande admin). */
     public void savePlayerData() {
+        if (writeFile(snapshot(), ++saveSequence)) {
+            plugin.getLogger().info("Toutes les donnees des joueurs ont ete sauvegardees.");
+        }
+    }
+
+    /**
+     * Sauvegarde à la déconnexion : seulement si des données ont changé, et l'écriture du fichier
+     * se fait hors du thread principal (il était réécrit en entier à chaque déconnexion).
+     */
+    public void savePlayerDataAsync() {
+        if (!dirty) {
+            return;
+        }
+        String data = snapshot();
+        long sequence = ++saveSequence;
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> writeFile(data, sequence));
+    }
+
+    private boolean writeFile(String data, long sequence) {
+        synchronized (writeLock) {
+            // Une sauvegarde plus récente a déjà été écrite : ne pas la remplacer par une ancienne.
+            if (sequence < writtenSequence) {
+                return false;
+            }
+            try {
+                Files.writeString(playerDataFile.toPath(), data, StandardCharsets.UTF_8);
+                writtenSequence = sequence;
+                return true;
+            } catch (IOException e) {
+                plugin.getLogger().log(Level.SEVERE, "Impossible de sauvegarder playerdata.yml", e);
+                return false;
+            }
+        }
+    }
+
+    /** Recopie les données en mémoire dans playerDataConfig (thread principal) et renvoie le YAML à écrire. */
+    private String snapshot() {
         if (playerDataConfig == null) {
             playerDataConfig = new YamlConfiguration();
         }
+        dirty = false;
 
         playerDataConfig.set("players", null);
 
@@ -146,20 +193,17 @@ public class PlayerDataManager {
             }
         }
 
-        try {
-            playerDataConfig.save(playerDataFile);
-            plugin.getLogger().info("Toutes les donnees des joueurs ont ete sauvegardees.");
-        } catch (IOException e) {
-            plugin.getLogger().log(Level.SEVERE, "Impossible de sauvegarder playerdata.yml", e);
-        }
+        return playerDataConfig.saveToString();
     }
 
     public long getBestTime(UUID uuid, String parkourName) {
-        return bestTimes.getOrDefault(uuid, new ConcurrentHashMap<>()).getOrDefault(parkourName.toLowerCase(), -1L);
+        Map<String, Long> playerTimes = bestTimes.get(uuid);
+        return playerTimes == null ? -1L : playerTimes.getOrDefault(parkourName.toLowerCase(), -1L);
     }
 
     public void setBestTime(UUID uuid, String parkourName, long time) {
         bestTimes.computeIfAbsent(uuid, ignored -> new ConcurrentHashMap<>()).put(parkourName.toLowerCase(), time);
+        dirty = true;
     }
 
     public Map<UUID, Long> getLeaderboard(String parkourName) {
@@ -198,6 +242,9 @@ public class PlayerDataManager {
             }
         }
 
+        if (removedBestTime || removedClaims) {
+            dirty = true;
+        }
         return removedBestTime || removedClaims;
     }
 
@@ -216,5 +263,6 @@ public class PlayerDataManager {
             .computeIfAbsent(uuid, ignored -> new ConcurrentHashMap<>())
             .computeIfAbsent(parkourName.toLowerCase(), ignored -> ConcurrentHashMap.newKeySet())
             .add(checkpointIndex);
+        dirty = true;
     }
 }

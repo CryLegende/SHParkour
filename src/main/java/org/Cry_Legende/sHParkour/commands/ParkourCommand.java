@@ -75,7 +75,7 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
             return;
         }
         String parkourName = args[1];
-        if (parkourManager.getParkour(parkourName) != null) {
+        if (parkourManager.getParkour(parkourName) != null || parkourManager.isPending(parkourName)) {
             sender.sendMessage(plugin.getConfigManager().getMessage("parkour-already-exists").replace("{parkour}", parkourName));
             return;
         }
@@ -94,7 +94,7 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
             return;
         }
         String parkourName = args[1];
-        if (parkourManager.getParkour(parkourName) == null) {
+        if (parkourManager.getParkour(parkourName) == null && !parkourManager.isPending(parkourName)) {
             sender.sendMessage(plugin.getConfigManager().getMessage("parkour-not-found").replace("{parkour}", parkourName));
             return;
         }
@@ -128,6 +128,12 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
 
         String parkourName = args[1];
         Parkour parkour = parkourManager.getParkour(parkourName);
+        if (parkour == null && parkourManager.isPending(parkourName)) {
+            // Parcours en attente de son monde (voir ParkourManager) : rien à configurer avant son chargement.
+            player.sendMessage("§cLe parcours '" + parkourName + "' attend le chargement du monde "
+                + String.join(", ", parkourManager.getPendingWorlds(parkourName)) + ".");
+            return;
+        }
         if (parkour == null) {
             player.sendMessage(plugin.getConfigManager().getMessage("parkour-not-found").replace("{parkour}", parkourName));
             return;
@@ -246,10 +252,13 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
         String playerName = args[2];
 
         Parkour parkour = parkourManager.getParkour(parkourName);
-        if (parkour == null) {
+        if (parkour == null && !parkourManager.isPending(parkourName)) {
             sender.sendMessage(plugin.getConfigManager().getMessage("parkour-not-found").replace("{parkour}", parkourName));
             return;
         }
+        // Les temps sont rangés par nom : un parcours en attente de son monde se réinitialise aussi.
+        String internalName = parkour != null ? parkour.getInternalName() : parkourName.toLowerCase();
+        String displayName = parkour != null ? parkour.getDisplayName() : parkourName;
 
         @SuppressWarnings("deprecation")
         OfflinePlayer targetPlayer = Bukkit.getOfflinePlayer(playerName);
@@ -259,15 +268,15 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        if (playerDataManager.resetPlayerTime(targetPlayer.getUniqueId(), parkour.getInternalName())) {
+        if (playerDataManager.resetPlayerTime(targetPlayer.getUniqueId(), internalName)) {
             sender.sendMessage(plugin.getConfigManager().getMessage("reset-time-success")
                 .replace("{player}", targetPlayer.getName() != null ? targetPlayer.getName() : playerName)
-                .replace("{parkour}", parkour.getDisplayName()));
+                .replace("{parkour}", displayName));
             playerDataManager.savePlayerData();
         } else {
             sender.sendMessage(plugin.getConfigManager().getMessage("reset-time-no-time")
                 .replace("{player}", targetPlayer.getName() != null ? targetPlayer.getName() : playerName)
-                .replace("{parkour}", parkour.getDisplayName()));
+                .replace("{parkour}", displayName));
         }
     }
 

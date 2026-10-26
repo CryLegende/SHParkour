@@ -7,11 +7,13 @@ import org.Cry_Legende.sHInventoryPages.api.ISHInventoryPagesAPI;
 import org.Cry_Legende.sHParkour.SHParkour;
 import org.Cry_Legende.sHParkour.objects.Parkour;
 import org.Cry_Legende.sHParkour.objects.ParkourSession;
+import org.Cry_Legende.sHParkour.utils.LocationUtil;
 import org.Cry_Legende.sHParkour.utils.TimeUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -26,17 +28,27 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 
 public class ParkourManager {
 
     private final SHParkour plugin;
     private final Map<String, Parkour> parkours = new HashMap<>();
+    /**
+     * Parcours dont un monde n'est pas encore chargé (PhantomWorlds charge des mondes après onEnable) :
+     * nom de fichier -> mondes attendus. Le fichier n'est pas touché, le parcours est créé au chargement du monde.
+     */
+    private final Map<String, Set<String>> pendingParkours = new TreeMap<>();
     private final Map<UUID, ParkourSession> playerSessions = new HashMap<>();
+    /** Joueurs en cours de téléportation par le plugin (ProtectionListener ne doit pas les sortir du parcours). */
+    private final Set<UUID> pluginTeleports = new HashSet<>();
     private BukkitTask actionbarTask;
-    public static final String TELEPORT_METADATA_TAG = "shparkour.teleport";
     /**
      * Métadonnée posée sur le joueur pendant toute la durée d'un parcours.
      * Les autres plugins maison (SHTempFly, SHDoubleJump) la lisent pour se mettre
@@ -55,16 +67,91 @@ public class ParkourManager {
 
     public void loadParkours() {
         parkours.clear();
+        pendingParkours.clear();
         File parkoursFolder = plugin.getConfigManager().getParkoursFolder();
         File[] files = parkoursFolder.listFiles((dir, name) -> name.endsWith(".yml"));
         if (files == null) return;
         for (File file : files) {
-            String parkourName = file.getName().replace(".yml", "");
-            Parkour parkour = new Parkour(plugin, parkourName);
-            parkours.put(parkourName.toLowerCase(), parkour);
-            plugin.getBlockManager().placeParkourBlocks(parkour);
+            loadParkour(file.getName().replace(".yml", ""));
         }
         plugin.getLogger().info(parkours.size() + " parcours ont été chargés.");
+        pendingParkours.forEach((name, worlds) -> plugin.getLogger().info(
+            "Parcours '" + name + "' en attente du chargement du monde " + String.join(", ", worlds) + "."));
+    }
+
+    /**
+     * Crée le parcours si tous ses mondes sont chargés, sinon le met en attente sans toucher à son fichier.
+     */
+    private void loadParkour(String parkourName) {
+        Set<String> missingWorlds = getMissingWorlds(parkourName);
+        if (!missingWorlds.isEmpty()) {
+            pendingParkours.put(parkourName.toLowerCase(), missingWorlds);
+            return;
+        }
+        Parkour parkour = new Parkour(plugin, parkourName);
+        parkours.put(parkourName.toLowerCase(), parkour);
+        plugin.getBlockManager().placeParkourBlocks(parkour);
+    }
+
+    /** Mondes cités par le fichier du parcours et pas encore chargés. */
+    private Set<String> getMissingWorlds(String parkourName) {
+        Set<String> missing = new LinkedHashSet<>();
+        FileConfiguration config = plugin.getConfigManager().getParkourConfig(parkourName);
+        if (config == null) return missing;
+        List<String> serialized = new ArrayList<>(config.getStringList("checkpoints"));
+        for (String key : List.of("start", "end", "respawn", "end-spawn")) {
+            serialized.add(config.getString(key));
+        }
+        for (String s : serialized) {
+            String worldName = LocationUtil.worldName(s);
+            if (worldName != null && Bukkit.getWorld(worldName) == null) {
+                missing.add(worldName);
+            }
+        }
+        return missing;
+    }
+
+    /** Met en place les parcours qui n'attendaient plus que ce monde. */
+    public void handleWorldLoad(String worldName) {
+        List<String> ready = new ArrayList<>();
+        pendingParkours.forEach((name, worlds) -> {
+            worlds.removeIf(w -> w.equalsIgnoreCase(worldName));
+            if (worlds.isEmpty()) ready.add(name);
+        });
+        for (String name : ready) {
+            pendingParkours.remove(name);
+            loadParkour(name);
+            if (parkours.containsKey(name)) {
+                plugin.getLogger().info("Parcours '" + name + "' mis en place (monde " + worldName + " chargé).");
+            }
+        }
+    }
+
+    /** Remet en attente les parcours d'un monde déchargé : leurs positions ne seraient plus valides. */
+    public void handleWorldUnload(World world) {
+        for (Parkour parkour : new ArrayList<>(parkours.values())) {
+            if (!parkour.usesWorld(world)) continue;
+            new ArrayList<>(playerSessions.values()).forEach(session -> {
+                Player p = Bukkit.getPlayer(session.getPlayerUUID());
+                if (p != null && session.getParkour().equals(parkour)) endParkour(p, false, false);
+            });
+            plugin.getHologramManager().deleteHolograms(parkour);
+            String name = parkour.getInternalName().toLowerCase();
+            parkours.remove(name);
+            // Le monde est encore chargé pendant l'événement : on l'ajoute à la main.
+            Set<String> missing = getMissingWorlds(name);
+            missing.add(world.getName());
+            pendingParkours.put(name, missing);
+        }
+    }
+
+    /** Vrai si un fichier de parcours porte ce nom mais attend encore le chargement d'un monde. */
+    public boolean isPending(String name) {
+        return pendingParkours.containsKey(name.toLowerCase());
+    }
+
+    public Set<String> getPendingWorlds(String name) {
+        return pendingParkours.getOrDefault(name.toLowerCase(), Set.of());
     }
 
     public void reloadParkours() {
@@ -96,7 +183,10 @@ public class ParkourManager {
             player.sendMessage("§cCe parkour n'est pas encore configuré (pas de point de départ).");
             return;
         }
-        plugin.getPlayerStateManager().saveState(player);
+        // Sans état sauvegardé, vider l'inventaire ferait perdre les objets du joueur.
+        if (!plugin.getPlayerStateManager().saveState(player)) {
+            return;
+        }
         player.setGameMode(GameMode.ADVENTURE);
         player.getInventory().clear();
         player.setHealth(20.0);
@@ -183,8 +273,18 @@ public class ParkourManager {
     }
 
     private void safeTeleport(Player player, Location location) {
-        player.setMetadata(TELEPORT_METADATA_TAG, new FixedMetadataValue(plugin, true));
-        player.teleport(location);
+        // PlayerTeleportEvent est appelé pendant teleport() : le marqueur ne survit pas à l'appel
+        // (l'ancienne métadonnée restait posée quand le joueur n'était plus en parcours).
+        pluginTeleports.add(player.getUniqueId());
+        try {
+            player.teleport(location);
+        } finally {
+            pluginTeleports.remove(player.getUniqueId());
+        }
+    }
+
+    public boolean isPluginTeleport(Player player) {
+        return pluginTeleports.contains(player.getUniqueId());
     }
 
     private void handleRewards(Player player, Parkour parkour, boolean isFirstCompletion) {
@@ -274,6 +374,10 @@ public class ParkourManager {
     }
 
     public void deleteParkour(String name) {
+        if (pendingParkours.remove(name.toLowerCase()) != null) {
+            plugin.getConfigManager().deleteParkourFile(name);
+            return;
+        }
         Parkour parkour = getParkour(name);
         if (parkour != null) {
             new ArrayList<>(playerSessions.keySet()).forEach(uuid -> {
@@ -298,6 +402,7 @@ public class ParkourManager {
     }
 
     private void startActionbarTask() {
+        // Tâche synchrone : elle lit le monde du joueur et modifie playerSessions (HashMap non thread-safe).
         actionbarTask = new BukkitRunnable() {
             @Override
             public void run() {
@@ -311,19 +416,15 @@ public class ParkourManager {
 
                     // Vérification du changement de monde
                     if (!player.getWorld().getName().equals(session.getWorldName())) {
-                        Bukkit.getScheduler().runTask(plugin, () -> {
-                            player.sendMessage(plugin.getConfigManager().getMessage("protection.teleport-denied"));
-                            endParkour(player, false, false); // Ne pas téléporter
-                        });
+                        player.sendMessage(plugin.getConfigManager().getMessage("protection.teleport-denied"));
+                        endParkour(player, false, false); // Ne pas téléporter
                         return;
                     }
 
                     Parkour parkour = session.getParkour();
                     if (parkour.getMaxTime() > 0 && session.getElapsedTime() > parkour.getMaxTime()) {
-                        Bukkit.getScheduler().runTask(plugin, () -> {
-                            player.sendMessage("§cTemps écoulé ! Vous avez été retiré du parcours.");
-                            endParkour(player, false, true); // Téléporter au spawn de fin
-                        });
+                        player.sendMessage("§cTemps écoulé ! Vous avez été retiré du parcours.");
+                        endParkour(player, false, true); // Téléporter au spawn de fin
                         return;
                     }
                     String format = plugin.getConfigManager().getActionbarFormat();
@@ -332,7 +433,7 @@ public class ParkourManager {
                     player.sendActionBar(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
                 });
             }
-        }.runTaskTimerAsynchronously(plugin, 0L, 20L);
+        }.runTaskTimer(plugin, 0L, 20L);
     }
 
     private void giveParkourItems(Player player) {

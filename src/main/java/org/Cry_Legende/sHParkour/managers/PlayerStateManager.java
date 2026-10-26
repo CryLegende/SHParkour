@@ -22,7 +22,10 @@ public class PlayerStateManager {
         }
     }
 
-    public void saveState(Player player) {
+    /**
+     * @return false si l'état n'a pas pu être écrit : le parcours ne doit alors pas démarrer.
+     */
+    public boolean saveState(Player player) {
         File stateFile = new File(statesFolder, player.getUniqueId() + ".yml");
         if (stateFile.exists()) {
             plugin.getLogger().warning("Un fichier d'état existait déjà pour " + player.getName() + ". Il va être écrasé.");
@@ -34,8 +37,10 @@ public class PlayerStateManager {
 
         try {
             config.save(stateFile);
+            return true;
         } catch (IOException e) {
             plugin.getLogger().log(Level.SEVERE, "Impossible de sauvegarder l'état du joueur " + player.getName(), e);
+            return false;
         }
     }
 

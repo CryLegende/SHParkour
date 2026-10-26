@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
@@ -34,12 +35,10 @@ public class ProtectionListener implements Listener {
             return;
         }
 
-        // <<<< CORRECTION: Logique de téléportation avec métadonnées >>>>
-        if (player.hasMetadata(ParkourManager.TELEPORT_METADATA_TAG)) {
-            // C'est une téléportation légitime de notre plugin
-            player.removeMetadata(ParkourManager.TELEPORT_METADATA_TAG, plugin);
-        } else {
+        // <<<< CORRECTION: Logique de téléportation avec marqueur >>>>
+        if (!parkourManager.isPluginTeleport(player)) {
             // C'est une téléportation externe, on annule le parcours
+            // (les téléportations du plugin passent par ParkourManager.safeTeleport)
             player.sendMessage(plugin.getConfigManager().getMessage("protection.teleport-denied"));
             parkourManager.endParkour(player, false, false);
             // On n'annule PAS l'événement pour que la téléportation ait bien lieu
@@ -79,6 +78,20 @@ public class ProtectionListener implements Listener {
                 player.sendMessage(plugin.getConfigManager().getMessage("protection.item-use-denied"));
             }
         }
+    }
+
+    // Mort pendant un parcours : l'inventaire porté est celui du parcours (le vrai est sauvegardé à part
+    // et restauré à la sortie). Rien ne doit tomber : ni les objets du parcours, ni des orbes d'expérience
+    // que la restauration du niveau rendrait une seconde fois.
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        if (!parkourManager.isInParkour(event.getPlayer())) {
+            return;
+        }
+        event.setKeepInventory(true);
+        event.getDrops().clear();
+        event.setKeepLevel(true);
+        event.setDroppedExp(0);
     }
 
     @EventHandler
