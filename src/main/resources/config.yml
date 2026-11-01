@@ -31,6 +31,9 @@ messages:
   parkour-finish: "&7&l« &a&lSH &8&l» &7Félicitations ! Vous avez terminé le parcours &b{parkour} &7en &a{time}&7."
   new-best-time: "&7&l« &a&lSH &8&l» &7Nouveau record personnel ! Votre nouveau meilleur temps est &a{time}&7."
   checkpoint-reached: "&7&l« &a&lSH &8&l» &7Checkpoint &a#{index} &7atteint !"
+  checkpoints-missing: "&7&l« &c&lSH &8&l» &7Vous devez passer &ctous les checkpoints &7avant de finir !"
+  time-expired: "&7&l« &c&lSH &8&l» &7Temps écoulé ! Vous avez été retiré du parcours &c{parkour}&7."
+  parkour-not-configured: "&7&l« &c&lSH &8&l» &7Le parcours &c{parkour} &7n'est pas encore configuré (pas de départ)."
 
   # Messages de protection
   protection:
@@ -39,6 +42,8 @@ messages:
     effects-denied: "&7&l« &c&lSH &8&l» &7Les effets de potions sont désactivés pendant un parcours."
     item-use-denied: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas utiliser cet objet pendant un parcours."
     command-denied: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas utiliser cette commande pendant un parcours."
+    # Joueur devenu passager (monture, véhicule, assis sur un autre joueur) : il sort du parcours.
+    vehicle-denied: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas être &cporté &7pendant un parcours : vous l'avez quitté."
 
 # Format de l'actionbar affichant le temps
 actionbar-format: "&b&lPARKOUR {parkour_display_name} &r&8| &7Temps: &f{time}"

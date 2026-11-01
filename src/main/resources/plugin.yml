@@ -10,7 +10,7 @@ commands:
   parkour:
     description: Commande principale du plugin SHParkour.
     aliases: [shpk]
-    usage: "/<command> [create|delete|setup|reload]"
+    usage: "/<command> <create|delete|setup|reload|resettime|top>"
 
 permissions:
   shparkour.admin.*:
@@ -23,6 +23,7 @@ permissions:
       shparkour.admin.reload: true
       shparkour.admin.bypass.commands: true
       shparkour.admin.resettime: true
+      shparkour.admin.top: true
 
   shparkour.admin.create:
     description: Permet de créer un nouveau parcours avec /parkour create.
@@ -45,5 +46,9 @@ permissions:
     default: op
 
   shparkour.admin.resettime:
-    description: Permet de réinitialiser le temps d'un joueur sur un parcours.
+    description: Permet de retirer le temps d'un joueur d'un parcours (classements compris).
+    default: op
+
+  shparkour.admin.top:
+    description: Permet de consulter le classement complet d'un parcours avec /parkour top.
     default: op

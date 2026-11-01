@@ -2,6 +2,7 @@ package org.Cry_Legende.sHParkour.managers;
 
 import org.Cry_Legende.sHParkour.SHParkour;
 import org.bukkit.ChatColor;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -10,7 +11,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.logging.Level;
 
 public class ConfigManager {
@@ -39,21 +42,28 @@ public class ConfigManager {
         plugin.getParkourManager().reloadParkours();
     }
 
+    /**
+     * Message de config.yml. getString(path) sans valeur par défaut explicite retombe sur le config.yml
+     * du jar : un message ajouté dans une nouvelle version s'affiche même si le fichier du serveur ne l'a pas.
+     */
     public String getMessage(String path) {
-        String message = mainConfig.getString("messages." + path, "&cMessage non trouve: " + path);
-        String prefix = mainConfig.getString("prefix", "&8[&bSHParkour&8] &r");
+        String message = mainConfig.getString("messages." + path);
+        if (message == null) {
+            message = "&cMessage non trouve: " + path;
+        }
+        String prefix = mainConfig.getString("prefix", "");
         return ChatColor.translateAlternateColorCodes('&', prefix + message);
     }
 
-    public String getRawMessage(String path) {
-        String message = mainConfig.getString("messages." + path, "&cMessage non trouve: " + path);
-        return ChatColor.translateAlternateColorCodes('&', message);
-    }
-
+    /** Commandes autorisées en parcours : la liste de config.yml plus /parkour et ses alias. */
     public List<String> getWhitelistedCommands() {
-        List<String> commands = mainConfig.getStringList("allowed-commands");
-        commands.add("parkour");
-        commands.add("pk");
+        List<String> commands = new ArrayList<>();
+        mainConfig.getStringList("allowed-commands").forEach(command -> commands.add(command.toLowerCase(Locale.ROOT)));
+        PluginCommand parkourCommand = plugin.getCommand("parkour");
+        if (parkourCommand != null) {
+            commands.add(parkourCommand.getName().toLowerCase(Locale.ROOT));
+            parkourCommand.getAliases().forEach(alias -> commands.add(alias.toLowerCase(Locale.ROOT)));
+        }
         return commands;
     }
 

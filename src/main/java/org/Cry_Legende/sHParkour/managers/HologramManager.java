@@ -17,6 +17,9 @@ import java.util.logging.Level;
 
 public class HologramManager {
 
+    /** Rafraîchissement des hologrammes qui affichent des placeholders. */
+    private static final int PLACEHOLDER_REFRESH_MS = 10_000;
+
     private final SHParkour plugin;
     private final de.oliver.fancyholograms.api.HologramManager hologramManagerAPI;
 
@@ -109,6 +112,10 @@ public class HologramManager {
             .toList();
 
         data.setText(processedLines);
+        // Sans intervalle, FancyHolograms ne recalcule jamais les placeholders (meilleur temps, classement).
+        if (processedLines.stream().anyMatch(line -> line.indexOf('%') >= 0)) {
+            data.setTextUpdateInterval(PLACEHOLDER_REFRESH_MS);
+        }
         data.setPersistent(true);
 
         Hologram hologramObject;

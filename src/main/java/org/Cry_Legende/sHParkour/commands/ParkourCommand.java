@@ -4,9 +4,9 @@ import org.Cry_Legende.sHParkour.SHParkour;
 import org.Cry_Legende.sHParkour.managers.ParkourManager;
 import org.Cry_Legende.sHParkour.managers.PlayerDataManager;
 import org.Cry_Legende.sHParkour.objects.Parkour;
+import org.Cry_Legende.sHParkour.utils.TimeUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -15,9 +15,14 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class ParkourCommand implements CommandExecutor, TabCompleter {
@@ -35,7 +40,7 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
-            sender.sendMessage("§b/parkour <create|delete|setup|reload|resettime>");
+            sender.sendMessage("§b/parkour <create|delete|setup|reload|resettime|top>");
             return true;
         }
 
@@ -58,8 +63,11 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
             case "rt":
                 handleResetTime(sender, args);
                 break;
+            case "top":
+                handleTop(sender, args);
+                break;
             default:
-                sender.sendMessage("§b/parkour <create|delete|setup|reload|resettime>");
+                sender.sendMessage("§b/parkour <create|delete|setup|reload|resettime|top>");
                 break;
         }
         return true;
@@ -108,7 +116,8 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(plugin.getConfigManager().getMessage("no-permission"));
             return;
         }
-        plugin.getParkourManager().reloadParkours();
+        // config.yml (messages, objets, commandes autorisées) puis les parcours.
+        plugin.getConfigManager().reloadConfigs();
         sender.sendMessage(plugin.getConfigManager().getMessage("parkour-reloaded"));
     }
 
@@ -260,23 +269,86 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
         String internalName = parkour != null ? parkour.getInternalName() : parkourName.toLowerCase();
         String displayName = parkour != null ? parkour.getDisplayName() : parkourName;
 
-        @SuppressWarnings("deprecation")
-        OfflinePlayer targetPlayer = Bukkit.getOfflinePlayer(playerName);
-
-        if (!targetPlayer.hasPlayedBefore() && !targetPlayer.isOnline()) {
+        UUID target = resolvePlayer(playerName, internalName);
+        if (target == null) {
             sender.sendMessage(plugin.getConfigManager().getMessage("player-not-found-for-reset").replace("{player}", playerName));
             return;
         }
+        String targetName = Objects.requireNonNullElse(playerDataManager.getName(target), playerName);
+        long removedTime = playerDataManager.getBestTime(target, internalName);
 
-        if (playerDataManager.resetPlayerTime(targetPlayer.getUniqueId(), internalName)) {
+        if (playerDataManager.resetPlayerTime(target, internalName)) {
             sender.sendMessage(plugin.getConfigManager().getMessage("reset-time-success")
-                .replace("{player}", targetPlayer.getName() != null ? targetPlayer.getName() : playerName)
+                .replace("{player}", targetName)
                 .replace("{parkour}", displayName));
-            playerDataManager.savePlayerData();
+            plugin.getLogger().info(sender.getName() + " a retire le temps de " + targetName + " (" + target + ") sur '"
+                + internalName + "' : " + TimeUtil.formatTime(removedTime) + "s");
+            playerDataManager.savePlayerDataAsync();
         } else {
             sender.sendMessage(plugin.getConfigManager().getMessage("reset-time-no-time")
-                .replace("{player}", targetPlayer.getName() != null ? targetPlayer.getName() : playerName)
+                .replace("{player}", targetName)
                 .replace("{parkour}", displayName));
+        }
+    }
+
+    /**
+     * Joueur visé par resettime : UUID, joueur connecté, ou pseudo connu de nos données.
+     * Jamais Bukkit.getOfflinePlayer(nom) : avec le proxy en online-mode il interroge Mojang (thread principal
+     * bloqué) et rend l'UUID premium, alors que le réseau range les joueurs sous leur UUID offline.
+     */
+    @Nullable
+    private UUID resolvePlayer(String input, String internalName) {
+        try {
+            return UUID.fromString(input);
+        } catch (IllegalArgumentException ignored) {
+            // Ce n'est pas un UUID : on cherche un pseudo.
+        }
+        UUID known = playerDataManager.findPlayer(input, internalName);
+        if (known != null) {
+            return known;
+        }
+        Player online = Bukkit.getPlayerExact(input);
+        return online != null ? online.getUniqueId() : null;
+    }
+
+    private static final int TOP_PAGE_SIZE = 10;
+    private static final DateTimeFormatter TOP_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.systemDefault());
+
+    /** /parkour top <parcours> [page] : classement complet, pour repérer les temps impossibles. */
+    private void handleTop(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("shparkour.admin.top")) {
+            sender.sendMessage(plugin.getConfigManager().getMessage("no-permission"));
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage("§cUsage: /parkour top <nom_parcours> [page]");
+            return;
+        }
+        Parkour parkour = parkourManager.getParkour(args[1]);
+        String internalName = parkour != null ? parkour.getInternalName() : args[1].toLowerCase();
+        String displayName = parkour != null ? parkour.getDisplayName() : args[1];
+        List<PlayerDataManager.Entry> entries = playerDataManager.getLeaderboard(internalName).entries();
+        if (entries.isEmpty()) {
+            sender.sendMessage("§7Aucun temps enregistré sur le parcours §e" + displayName + "§7.");
+            return;
+        }
+        int pages = (entries.size() + TOP_PAGE_SIZE - 1) / TOP_PAGE_SIZE;
+        int page = 1;
+        if (args.length >= 3) {
+            try {
+                page = Math.max(1, Math.min(pages, Integer.parseInt(args[2])));
+            } catch (NumberFormatException e) {
+                sender.sendMessage("§cLa page doit être un nombre entier.");
+                return;
+            }
+        }
+        sender.sendMessage("§6§lClassement " + displayName + " §7(page " + page + "/" + pages + ", " + entries.size() + " joueurs)");
+        int from = (page - 1) * TOP_PAGE_SIZE;
+        for (int i = from; i < Math.min(entries.size(), from + TOP_PAGE_SIZE); i++) {
+            PlayerDataManager.Entry entry = entries.get(i);
+            String name = Objects.requireNonNullElse(playerDataManager.getName(entry.uuid()), entry.uuid().toString());
+            String date = entry.date() > 0 ? " §8(" + TOP_DATE.format(Instant.ofEpochMilli(entry.date())) + ")" : "";
+            sender.sendMessage("§7#" + (i + 1) + " §f" + TimeUtil.formatTime(entry.time()) + "s §7- §e" + name + date);
         }
     }
 
@@ -295,12 +367,13 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
                 completions.add("resettime");
                 completions.add("rt");
             }
+            if (sender.hasPermission("shparkour.admin.top")) completions.add("top");
             return completions.stream().filter(s -> s.startsWith(currentArg)).collect(Collectors.toList());
         }
 
         String subCommand = args[0].toLowerCase();
         if (args.length == 2) {
-            if (subCommand.equals("delete") || subCommand.equals("setup") || subCommand.equals("resettime") || subCommand.equals("rt")) {
+            if (subCommand.equals("delete") || subCommand.equals("setup") || subCommand.equals("resettime") || subCommand.equals("rt") || subCommand.equals("top")) {
                 if (sender.hasPermission("shparkour.admin." + (subCommand.equals("rt") ? "resettime" : subCommand))) {
                     return parkourManager.getAllParkours().stream()
                         .map(Parkour::getInternalName)
@@ -327,9 +400,10 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
                     .filter(s -> s.startsWith(currentArg))
                     .collect(Collectors.toList());
             } else if ((subCommand.equals("resettime") || subCommand.equals("rt")) && sender.hasPermission("shparkour.admin.resettime")) {
-                return Bukkit.getOnlinePlayers().stream()
-                    .map(Player::getName)
-                    .filter(name -> name.toLowerCase().startsWith(currentArg))
+                // Joueurs qui ont un temps sur ce parcours, du plus rapide au plus lent (connectés ou non).
+                return playerDataManager.getLeaderboard(args[1]).entries().stream()
+                    .map(entry -> playerDataManager.getName(entry.uuid()))
+                    .filter(name -> name != null && name.toLowerCase().startsWith(currentArg))
                     .collect(Collectors.toList());
             }
         }

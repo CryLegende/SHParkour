@@ -80,6 +80,8 @@ public final class SHParkour extends JavaPlugin {
 
         new ParkourExpansion(this).register();
         blockManager.startIntegrityCheck();
+        // Sauvegarde périodique : sans elle, un arrêt brutal perdait les records faits depuis la dernière déconnexion.
+        getServer().getScheduler().runTaskTimer(this, playerDataManager::savePlayerDataAsync, 6000L, 6000L);
 
         getLogger().info("SHParkour a été activé avec succès !");
     }

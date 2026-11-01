@@ -37,7 +37,7 @@ public class PlayerMoveListener implements Listener {
             ParkourSession session = parkourManager.getSession(player);
             if (player.isOnGround()) {
                 session.setLastSafeLocation(player.getLocation());
-            } else {
+            } else if (plugin.getConfigManager().getMainConfig().getBoolean("fall-protection.enabled", true)) {
                 double maxFallDistance = plugin.getConfigManager().getMainConfig().getDouble("fall-protection.max-fall-distance", 8.0);
                 if (maxFallDistance > 0 && session.getLastSafeLocation() != null) {
                     if (session.getLastSafeLocation().getY() - to.getY() > maxFallDistance) {
@@ -62,12 +62,11 @@ public class PlayerMoveListener implements Listener {
             }
             if (areLocationsEqual(parkour.getEnd(), plateLocation)) {
                 if (parkourManager.isInParkour(player) && parkourManager.getSession(player).getParkour().equals(parkour)) {
-                    // <<<< CORRECTION: Vérification des checkpoints avant de finir >>>>
                     ParkourSession session = parkourManager.getSession(player);
                     if (session.getLastCheckpoint() == parkour.getCheckpointCount() - 1) {
                         parkourManager.endParkour(player, true);
                     } else {
-                        player.sendMessage("§cVous devez passer tous les checkpoints avant de finir !");
+                        player.sendMessage(plugin.getConfigManager().getMessage("checkpoints-missing"));
                     }
                 }
                 return;

@@ -169,6 +169,13 @@ public class ParkourManager {
     }
 
     public void startParkour(Player player, Parkour parkour) {
+        // Un passager (monture, véhicule, tête d'un autre joueur) se déplace sans effort : pas de parcours.
+        if (player.isInsideVehicle()) {
+            if (isInParkour(player)) {
+                ejectFromParkour(player, "protection.vehicle-denied");
+            }
+            return;
+        }
         ParkourSession existingSession = getSession(player);
         if (existingSession != null && existingSession.getParkour().equals(parkour)) {
             existingSession.resetTime();
@@ -177,10 +184,11 @@ public class ParkourManager {
             return;
         }
         if (isInParkour(player)) {
-            endParkour(player, false);
+            // Pas de téléportation vers la fin de l'ancien parcours : le joueur est sur la plaque du nouveau.
+            endParkour(player, false, false);
         }
         if (parkour.getStart() == null) {
-            player.sendMessage("§cCe parkour n'est pas encore configuré (pas de point de départ).");
+            player.sendMessage(plugin.getConfigManager().getMessage("parkour-not-configured").replace("{parkour}", parkour.getDisplayName()));
             return;
         }
         // Sans état sauvegardé, vider l'inventaire ferait perdre les objets du joueur.
@@ -232,13 +240,15 @@ public class ParkourManager {
             long time = session.getElapsedTime();
             String formattedTime = TimeUtil.formatTime(time);
             player.sendMessage(plugin.getConfigManager().getMessage("parkour-finish").replace("{parkour}", parkour.getDisplayName()).replace("{time}", formattedTime));
-            long bestTime = plugin.getPlayerDataManager().getBestTime(player.getUniqueId(), parkour.getInternalName());
-            boolean isFirstCompletion = (bestTime == -1);
-            if (isFirstCompletion || time < bestTime) {
-                plugin.getPlayerDataManager().setBestTime(player.getUniqueId(), parkour.getInternalName(), time);
+            PlayerDataManager.FinishResult result = plugin.getPlayerDataManager()
+                .recordFinish(player.getUniqueId(), player.getName(), parkour.getInternalName(), time);
+            if (result.newBest()) {
                 player.sendMessage(plugin.getConfigManager().getMessage("new-best-time").replace("{time}", formattedTime));
             }
-            handleRewards(player, parkour, isFirstCompletion);
+            // Trace console de chaque arrivée : sert à vérifier après coup un temps suspect.
+            plugin.getLogger().info(player.getName() + " a termine '" + parkour.getInternalName() + "' en " + formattedTime + "s"
+                + (result.newBest() ? " (record, ancien : " + TimeUtil.formatTime(result.previousBest()) + ")" : ""));
+            handleRewards(player, parkour, result.firstCompletion());
         } else {
             player.sendMessage(plugin.getConfigManager().getMessage("parkour-leave").replace("{parkour}", parkour.getDisplayName()));
         }
@@ -285,6 +295,22 @@ public class ParkourManager {
 
     public boolean isPluginTeleport(Player player) {
         return pluginTeleports.contains(player.getUniqueId());
+    }
+
+    /** Sort le joueur de son parcours sur place (sans téléportation), avec le message de protection donné. */
+    public void ejectFromParkour(Player player, String messageKey) {
+        if (!isInParkour(player)) return;
+        player.sendMessage(plugin.getConfigManager().getMessage(messageKey));
+        endParkour(player, false, false);
+    }
+
+    /** Un joueur qui se connecte reste caché aux joueurs en parcours qui ont masqué les autres. */
+    public void hideFromParkourViewers(Player joined) {
+        for (ParkourSession session : playerSessions.values()) {
+            if (session.arePlayersVisible() || session.getPlayerUUID().equals(joined.getUniqueId())) continue;
+            Player viewer = Bukkit.getPlayer(session.getPlayerUUID());
+            if (viewer != null) viewer.hidePlayer(plugin, joined);
+        }
     }
 
     private void handleRewards(Player player, Parkour parkour, boolean isFirstCompletion) {
@@ -416,14 +442,19 @@ public class ParkourManager {
 
                     // Vérification du changement de monde
                     if (!player.getWorld().getName().equals(session.getWorldName())) {
-                        player.sendMessage(plugin.getConfigManager().getMessage("protection.teleport-denied"));
-                        endParkour(player, false, false); // Ne pas téléporter
+                        ejectFromParkour(player, "protection.teleport-denied");
+                        return;
+                    }
+
+                    // Filet de sécurité du ProtectionListener : un passager monté sans EntityMountEvent est aussi sorti.
+                    if (player.isInsideVehicle()) {
+                        ejectFromParkour(player, "protection.vehicle-denied");
                         return;
                     }
 
                     Parkour parkour = session.getParkour();
                     if (parkour.getMaxTime() > 0 && session.getElapsedTime() > parkour.getMaxTime()) {
-                        player.sendMessage("§cTemps écoulé ! Vous avez été retiré du parcours.");
+                        player.sendMessage(plugin.getConfigManager().getMessage("time-expired").replace("{parkour}", parkour.getDisplayName()));
                         endParkour(player, false, true); // Téléporter au spawn de fin
                         return;
                     }

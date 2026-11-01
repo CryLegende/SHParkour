@@ -26,11 +26,12 @@ public class PlayerConnectionListener implements Listener {
         Player player = event.getPlayer();
 
         plugin.getPlayerStateManager().restoreStateIfAvailable(player);
-        playerDataManager.loadPlayerData(player.getUniqueId());
+        playerDataManager.rememberName(player.getUniqueId(), player.getName());
 
         if (parkourManager.isInParkour(player)) {
             parkourManager.endParkour(player, false);
         }
+        parkourManager.hideFromParkourViewers(player);
     }
 
     @EventHandler

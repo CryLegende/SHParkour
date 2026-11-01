@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityMountEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -14,18 +15,26 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.potion.PotionEffectType;
 
-import java.util.List;
-
 public class ProtectionListener implements Listener {
 
     private final SHParkour plugin;
     private final ParkourManager parkourManager;
-    private final List<String> whitelistedCommands;
 
     public ProtectionListener(SHParkour plugin) {
         this.plugin = plugin;
         this.parkourManager = plugin.getParkourManager();
-        this.whitelistedCommands = plugin.getConfigManager().getWhitelistedCommands();
+    }
+
+    /**
+     * Un joueur en parcours qui devient passager (monture, véhicule, siège posé sur la tête d'un autre joueur...)
+     * est porté par une entité qui, elle, n'a aucune contrainte : vol, double saut, etc. Il sort du parcours.
+     * MONITOR + ignoreCancelled : seule une montée réellement effectuée compte.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityMount(EntityMountEvent event) {
+        if (event.getEntity() instanceof Player player && parkourManager.isInParkour(player)) {
+            parkourManager.ejectFromParkour(player, "protection.vehicle-denied");
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -52,7 +61,7 @@ public class ProtectionListener implements Listener {
         Player player = event.getPlayer();
         if (parkourManager.isInParkour(player) && !player.hasPermission("shparkour.admin.bypass.commands")) {
             String command = event.getMessage().substring(1).split(" ")[0].toLowerCase();
-            if (!whitelistedCommands.contains(command)) {
+            if (!plugin.getConfigManager().getWhitelistedCommands().contains(command)) {
                 event.setCancelled(true);
                 player.sendMessage(plugin.getConfigManager().getMessage("protection.command-denied"));
             }
