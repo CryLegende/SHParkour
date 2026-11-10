@@ -46,6 +46,12 @@ Alias : `/shpk`. Le pseudo de `resettime` est cherché dans les données du plug
 
 Un hologramme FancyHolograms qui affiche ces placeholders doit avoir un `update_text_interval` (par exemple `10s`), sinon son texte n'est jamais recalculé et un temps retiré reste affiché.
 
+## Plusieurs serveurs Opale
+
+SHParkour n'a pas de mode réseau, et n'en a pas besoin. Les quatre parcours (`jump` et `usine` dans le monde `spawn`, `easter`, `christmas`) sont dans des mondes qui n'existent que sur le serveur du spawn, de l'arène et des events : c'est lui qui joue les parcours et qui garde seul `playerdata.yml` (temps, classements, récompenses de première arrivée) et `playerstates/` (inventaire mis de côté pendant la course).
+
+Sur un autre serveur, ces mondes ne sont que des copies où aucun joueur ne reste, donc personne n'y démarre un parcours. Les temps lus par les placeholders y restent ceux de la copie de `playerdata.yml`. Un parcours créé un jour dans un monde présent sur plusieurs serveurs demanderait un stockage partagé (meilleur temps en `LEAST`, récompense de première arrivée en `INSERT IGNORE`, inventaire mis de côté en base).
+
 ## Protections pendant un parcours
 
 Vol, téléportation, ender pearls, effets (vitesse, saut, lévitation, chute lente) et commandes hors liste blanche sont refusés. Un joueur qui devient **passager** (monture, véhicule, siège posé sur la tête d'un autre joueur...) quitte le parcours : il serait porté par une entité qui, elle, peut voler ou faire des doubles sauts. Chaque arrivée et chaque `resettime` sont écrits dans la console.

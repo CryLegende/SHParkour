@@ -1,4 +1,28 @@
-# Configuration principale de SHParkour
+# ======================================================================== #
+#                      SHParkour - Configuration                           #
+# ======================================================================== #
+#
+# Plugin : parcours de parkour avec plaques de pression (départ, checkpoints, arrivée), hologrammes
+# FancyHolograms, classements, récompenses de première arrivée et protections pendant la course.
+# Chaque parcours a son fichier dans parkours/ (modèle : parkour_template.yml).
+#
+# Commandes (alias /shpk) :
+#   /parkour create <nom>                    Crée un parcours.                      shparkour.admin.create
+#   /parkour delete <nom>                    Supprime un parcours.                  shparkour.admin.delete
+#   /parkour setup <nom> <option>            Place départ, arrivée, checkpoints...  shparkour.admin.setup
+#   /parkour reload                          Recharge ce fichier et les parcours.   shparkour.admin.reload
+#   /parkour resettime <parcours> <joueur>   Retire le meilleur temps d'un joueur.  shparkour.admin.resettime
+#   /parkour top <parcours> [page]           Classement complet.                    shparkour.admin.top
+#
+# Autre permission : shparkour.admin.bypass.commands (commandes autorisées pendant un parcours).
+#
+# Plusieurs serveurs Opale : les parcours (jump et usine dans le monde spawn, easter, christmas) sont tous dans
+# des mondes qui n'existent que sur le serveur du spawn. SHParkour n'a donc pas de mode réseau : il tourne sur
+# ce serveur-là, qui garde seul playerdata.yml et playerstates/. Sur un autre serveur, ces mondes ne sont que
+# des copies où personne ne reste, les parcours n'y sont jamais joués et leurs temps ne s'y mettent pas à jour.
+# Un parcours créé dans un monde présent sur plusieurs serveurs demanderait un stockage partagé.
+#
+# ======================================================================== #
 
 # Préfixe utilisé dans les messages du plugin
 prefix: "" # Le préfixe global est géré par message individuel
