@@ -3,6 +3,7 @@ package org.Cry_Legende.sHParkour.commands;
 import org.Cry_Legende.sHParkour.SHParkour;
 import org.Cry_Legende.sHParkour.managers.ParkourManager;
 import org.Cry_Legende.sHParkour.managers.PlayerDataManager;
+import org.Cry_Legende.sHParkour.network.NetworkParkour;
 import org.Cry_Legende.sHParkour.objects.Parkour;
 import org.Cry_Legende.sHParkour.utils.TimeUtil;
 import org.bukkit.Bukkit;
@@ -15,6 +16,7 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.File;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -23,6 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class ParkourCommand implements CommandExecutor, TabCompleter {
@@ -40,7 +43,7 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
-            sender.sendMessage("§b/parkour <create|delete|setup|reload|resettime|top>");
+            sender.sendMessage(usage(sender));
             return true;
         }
 
@@ -66,11 +69,42 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
             case "top":
                 handleTop(sender, args);
                 break;
+            case "import":
+                if (sender.hasPermission("shparkour.admin.import")) {
+                    handleImport(sender);
+                } else {
+                    sender.sendMessage(usage(sender)); // sans la permission : comme toute sous-commande inconnue
+                }
+                break;
             default:
-                sender.sendMessage("§b/parkour <create|delete|setup|reload|resettime|top>");
+                sender.sendMessage(usage(sender));
                 break;
         }
         return true;
+    }
+
+    /** Aide de la commande ; « import » n'y figure qu'en mode réseau, pour qui peut s'en servir. */
+    private String usage(CommandSender sender) {
+        boolean withImport = plugin.getNetwork() != null && sender.hasPermission("shparkour.admin.import");
+        return withImport ? "§b/parkour <create|delete|setup|reload|resettime|top|import>"
+            : "§b/parkour <create|delete|setup|reload|resettime|top>";
+    }
+
+    /** /parkour import : copie playerdata.yml dans la base du réseau, sans rien écraser. */
+    private void handleImport(CommandSender sender) {
+        NetworkParkour network = plugin.getNetwork();
+        if (network == null) {
+            sender.sendMessage(plugin.getConfigManager().getMessage("network.import-no-network"));
+            return;
+        }
+        network.importFile(new File(plugin.getDataFolder(), "playerdata.yml"), result -> sender.sendMessage(result == null
+            ? plugin.getConfigManager().getMessage("network.import-failed")
+            : plugin.getConfigManager().getMessage("network.import-done")
+                .replace("{players}", String.valueOf(result[0]))
+                .replace("{parkours}", String.valueOf(result[1]))
+                .replace("{checkpoints}", String.valueOf(result[2]))
+                .replace("{present}", String.valueOf(result[3]))
+                .replace("{read}", String.valueOf(result[4]))));
     }
 
     private void handleCreate(CommandSender sender, String[] args) {
@@ -269,26 +303,31 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
         String internalName = parkour != null ? parkour.getInternalName() : parkourName.toLowerCase();
         String displayName = parkour != null ? parkour.getDisplayName() : parkourName;
 
-        UUID target = resolvePlayer(playerName, internalName);
-        if (target == null) {
-            sender.sendMessage(plugin.getConfigManager().getMessage("player-not-found-for-reset").replace("{player}", playerName));
-            return;
-        }
-        String targetName = Objects.requireNonNullElse(playerDataManager.getName(target), playerName);
-        long removedTime = playerDataManager.getBestTime(target, internalName);
+        // Sans SHNetwork la suite s'exécute tout de suite ; en mode réseau, la recherche du pseudo et le retrait passent par la base
+        resolvePlayer(playerName, internalName, target -> {
+            if (target == null) {
+                sender.sendMessage(plugin.getConfigManager().getMessage("player-not-found-for-reset").replace("{player}", playerName));
+                return;
+            }
+            String targetName = Objects.requireNonNullElse(playerDataManager.getName(target), playerName);
 
-        if (playerDataManager.resetPlayerTime(target, internalName)) {
-            sender.sendMessage(plugin.getConfigManager().getMessage("reset-time-success")
-                .replace("{player}", targetName)
-                .replace("{parkour}", displayName));
-            plugin.getLogger().info(sender.getName() + " a retire le temps de " + targetName + " (" + target + ") sur '"
-                + internalName + "' : " + TimeUtil.formatTime(removedTime) + "s");
-            playerDataManager.savePlayerDataAsync();
-        } else {
-            sender.sendMessage(plugin.getConfigManager().getMessage("reset-time-no-time")
-                .replace("{player}", targetName)
-                .replace("{parkour}", displayName));
-        }
+            playerDataManager.resetPlayerTime(target, internalName, removedTime -> {
+                if (removedTime == null) {
+                    sender.sendMessage(plugin.getConfigManager().getMessage("network.database-error"));
+                } else if (removedTime >= 0) {
+                    sender.sendMessage(plugin.getConfigManager().getMessage("reset-time-success")
+                        .replace("{player}", targetName)
+                        .replace("{parkour}", displayName));
+                    plugin.getLogger().info(sender.getName() + " a retire le temps de " + targetName + " (" + target + ") sur '"
+                        + internalName + "' : " + TimeUtil.formatTime(removedTime) + "s");
+                    playerDataManager.savePlayerDataAsync();
+                } else {
+                    sender.sendMessage(plugin.getConfigManager().getMessage("reset-time-no-time")
+                        .replace("{player}", targetName)
+                        .replace("{parkour}", displayName));
+                }
+            });
+        });
     }
 
     /**
@@ -296,19 +335,34 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
      * Jamais Bukkit.getOfflinePlayer(nom) : avec le proxy en online-mode il interroge Mojang (thread principal
      * bloqué) et rend l'UUID premium, alors que le réseau range les joueurs sous leur UUID offline.
      */
-    @Nullable
-    private UUID resolvePlayer(String input, String internalName) {
+    private void resolvePlayer(String input, String internalName, Consumer<UUID> done) {
+        UUID literal = null;
         try {
-            return UUID.fromString(input);
+            literal = UUID.fromString(input);
         } catch (IllegalArgumentException ignored) {
             // Ce n'est pas un UUID : on cherche un pseudo.
         }
+        if (literal != null) {
+            done.accept(literal);
+            return;
+        }
         UUID known = playerDataManager.findPlayer(input, internalName);
         if (known != null) {
-            return known;
+            done.accept(known);
+            return;
         }
         Player online = Bukkit.getPlayerExact(input);
-        return online != null ? online.getUniqueId() : null;
+        if (online != null) {
+            done.accept(online.getUniqueId());
+            return;
+        }
+        NetworkParkour network = plugin.getNetwork();
+        if (network != null) {
+            // Mode réseau : le joueur n'a pas de données ici, il est peut-être connu de la base partagée
+            network.findByName(input, internalName, done);
+            return;
+        }
+        done.accept(null);
     }
 
     private static final int TOP_PAGE_SIZE = 10;
@@ -368,6 +422,7 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
                 completions.add("rt");
             }
             if (sender.hasPermission("shparkour.admin.top")) completions.add("top");
+            if (plugin.getNetwork() != null && sender.hasPermission("shparkour.admin.import")) completions.add("import");
             return completions.stream().filter(s -> s.startsWith(currentArg)).collect(Collectors.toList());
         }
 

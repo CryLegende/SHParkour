@@ -26,6 +26,9 @@ public class PlayerConnectionListener implements Listener {
         Player player = event.getPlayer();
 
         plugin.getPlayerStateManager().restoreStateIfAvailable(player);
+        if (plugin.getNetwork() != null) {
+            playerDataManager.beginNetworkJoin(player); // lecture en base, hors du fil principal
+        }
         playerDataManager.rememberName(player.getUniqueId(), player.getName());
 
         if (parkourManager.isInParkour(player)) {

@@ -4,16 +4,24 @@ import de.oliver.fancyholograms.api.FancyHologramsPlugin;
 import org.Cry_Legende.sHParkour.commands.ParkourCommand;
 import org.Cry_Legende.sHParkour.listeners.*;
 import org.Cry_Legende.sHParkour.managers.*;
+import org.Cry_Legende.sHParkour.network.NetworkLink;
+import org.Cry_Legende.sHParkour.network.NetworkParkour;
+import org.Cry_Legende.sHParkour.network.ParkourDatabase;
+import org.Cry_Legende.sHParkour.network.ShNetworkLink;
 import org.Cry_Legende.sHParkour.objects.Parkour;
 import org.Cry_Legende.sHParkour.placeholders.ParkourExpansion;
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import org.Cry_Legende.sHInventoryPages.SHInventoryPages;
 import org.Cry_Legende.sHInventoryPages.api.ISHInventoryPagesAPI;
 
+import java.time.Duration;
 import java.util.Objects;
+import java.util.logging.Level;
 
 public final class SHParkour extends JavaPlugin {
 
@@ -24,6 +32,8 @@ public final class SHParkour extends JavaPlugin {
     private PlayerDataManager playerDataManager;
     private PlayerStateManager playerStateManager;
     private BlockManager blockManager;
+    // Non nul seulement avec SHNetwork : temps et récompenses sont dans la base partagée
+    private NetworkParkour network;
 
     private ISHInventoryPagesAPI shInventoryPagesAPI = null;
 
@@ -65,8 +75,16 @@ public final class SHParkour extends JavaPlugin {
 
         // Chargement des données
         configManager.loadConfigs();
+        enableNetwork();
         playerDataManager.loadPlayerData();
         parkourManager.loadParkours();
+        if (network != null) {
+            network.start(playerDataManager::flushPlayer, playerDataManager, parkourManager::knownParkourNames);
+            // joueurs déjà là (rechargement à chaud) : lus comme à une arrivée
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                playerDataManager.beginNetworkJoin(online);
+            }
+        }
 
         // Enregistrement des commandes et listeners
         Objects.requireNonNull(getCommand("parkour")).setExecutor(new ParkourCommand(this));
@@ -98,7 +116,44 @@ public final class SHParkour extends JavaPlugin {
         if (playerDataManager != null) {
             playerDataManager.savePlayerData();
         }
+        if (network != null) {
+            network.stop(); // termine les écritures en cours
+        }
         getLogger().info("SHParkour a été désactivé.");
+    }
+
+    /**
+     * Passe en mode réseau si SHNetwork est installé et 'reseau.actif' est vrai. Les classes qui touchent à SHNetwork
+     * ne sont chargées qu'ici : sans lui, le plugin se comporte exactement comme avant (playerdata.yml).
+     */
+    private void enableNetwork() {
+        FileConfiguration config = configManager.getMainConfig();
+        if (!config.getBoolean("reseau.actif", true)) return;
+        if (!Bukkit.getPluginManager().isPluginEnabled("SHNetwork")) return;
+        ParkourDatabase db = null;
+        try {
+            NetworkLink link = ShNetworkLink.open();
+            db = new ParkourDatabase(
+                config.getString("reseau.base-de-donnees.url", ""),
+                config.getString("reseau.base-de-donnees.utilisateur", ""),
+                config.getString("reseau.base-de-donnees.mot-de-passe", ""),
+                Math.max(250, config.getInt("reseau.base-de-donnees.delai-ms", 3000)));
+            db.createTables();
+            Duration wait = Duration.ofSeconds(Math.max(1, config.getInt("reseau.attente-max-secondes", 10)));
+            String channel = config.getString("reseau.canal", "shparkour").toLowerCase();
+            network = new NetworkParkour(this, db, link, wait, channel, config.getInt("reseau.cache-classements-secondes", 15));
+            playerDataManager.setNetwork(network);
+            getLogger().info("SHNetwork détecté : temps, parcours terminés et classements sont dans la base partagée.");
+        } catch (Exception | LinkageError e) {
+            network = null;
+            if (db != null) db.close();
+            getLogger().log(Level.SEVERE, "SHNetwork présent mais inutilisable, parcours locaux à ce serveur : " + e);
+        }
+    }
+
+    /** Le mode réseau, ou null sans SHNetwork. */
+    public NetworkParkour getNetwork() {
+        return network;
     }
 
     public static SHParkour getInstance() {

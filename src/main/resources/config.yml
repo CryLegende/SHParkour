@@ -13,14 +13,17 @@
 #   /parkour reload                          Recharge ce fichier et les parcours.   shparkour.admin.reload
 #   /parkour resettime <parcours> <joueur>   Retire le meilleur temps d'un joueur.  shparkour.admin.resettime
 #   /parkour top <parcours> [page]           Classement complet.                    shparkour.admin.top
+#   /parkour import                          Avec SHNetwork : copie playerdata.yml dans la base.  shparkour.admin.import
 #
 # Autre permission : shparkour.admin.bypass.commands (commandes autorisées pendant un parcours).
 #
 # Plusieurs serveurs Opale : les parcours (jump et usine dans le monde spawn, easter, christmas) sont tous dans
-# des mondes qui n'existent que sur le serveur du spawn. SHParkour n'a donc pas de mode réseau : il tourne sur
-# ce serveur-là, qui garde seul playerdata.yml et playerstates/. Sur un autre serveur, ces mondes ne sont que
-# des copies où personne ne reste, les parcours n'y sont jamais joués et leurs temps ne s'y mettent pas à jour.
-# Un parcours créé dans un monde présent sur plusieurs serveurs demanderait un stockage partagé.
+# des mondes qui n'existent que sur le serveur du spawn, c'est lui qui joue les parcours (et lui seul garde
+# playerstates/, l'inventaire mis de côté pendant la course). Avec SHNetwork (voir la section 'reseau' en bas du
+# fichier), les temps, les parcours terminés, les récompenses de checkpoint et les classements sont dans une base
+# partagée : les placeholders %shparkour_...% et /parkour top montrent les mêmes données sur tous les serveurs.
+# Sans SHNetwork, rien ne change : playerdata.yml reste sur ce serveur-là (et sur un autre serveur, les temps lus
+# par les placeholders ne seraient que ceux d'une copie de playerdata.yml qui n'est pas mise à jour).
 #
 # ======================================================================== #
 
@@ -68,6 +71,14 @@ messages:
     command-denied: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas utiliser cette commande pendant un parcours."
     # Joueur devenu passager (monture, véhicule, assis sur un autre joueur) : il sort du parcours.
     vehicle-denied: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas être &cporté &7pendant un parcours : vous l'avez quitté."
+
+  # Mode réseau (SHNetwork)
+  network:
+    loading: "&7&l« &e&lSH &8&l» &7Vos données de parcours sont en cours de chargement, réessayez dans un instant."
+    database-error: "&7&l« &c&lSH &8&l» &7La base du réseau ne répond pas."
+    import-done: "&7&l« &a&lSH &8&l» &7Importation terminée : &a{players} &7joueur(s), &a{parkours} &7parcours et &a{checkpoints} &7récompense(s) de checkpoint ajoutés, &a{present} &7déjà présent(s) (&a{read} &7joueur(s) lus)."
+    import-failed: "&7&l« &c&lSH &8&l» &7L'importation a échoué, &cvérifiez la console&7."
+    import-no-network: "&7&l« &c&lSH &8&l» &7Cette commande demande le &cmode réseau &7(SHNetwork installé et base joignable)."
 
 # Format de l'actionbar affichant le temps
 actionbar-format: "&b&lPARKOUR {parkour_display_name} &r&8| &7Temps: &f{time}"
@@ -119,3 +130,26 @@ parkour-items:
     name: "&aCacher les joueurs"
     lore:
       - "&7Cliquez pour changer la visibilité."
+
+# Mode réseau. Actif seulement si SHNetwork est installé et 'actif' vaut true : les temps, les parcours terminés
+# (récompense de première arrivée) et les récompenses de checkpoint de chaque joueur sont alors dans la base partagée
+# (tables shparkour_players, shparkour_times et shparkour_checkpoints) au lieu de playerdata.yml. Ils sont lus à la
+# connexion du joueur, une fois que l'autre serveur a fini de le sauvegarder, puis chaque arrivée est écrite aussitôt
+# (le meilleur temps ne s'écrit que s'il est plus petit). Les classements viennent de la base, gardés en mémoire pour
+# les placeholders. playerdata.yml n'est plus lu ni écrit : /parkour import le copie une fois dans la base, sans rien
+# écraser. Sans SHNetwork, rien de ceci n'est utilisé. Demande un redémarrage.
+reseau:
+  actif: true
+  # Durée maximale, en secondes, pendant laquelle on attend que l'autre serveur ait fini de sauvegarder
+  # le joueur avant de lire ses données
+  attente-max-secondes: 10
+  # Canal du bus SHNetwork : chaque serveur y prévient les autres qu'un classement a changé ou qu'un temps a été retiré
+  canal: shparkour
+  # Intervalle, en secondes, entre deux relectures des classements en base (en plus de celle qui suit chaque changement)
+  cache-classements-secondes: 15
+  base-de-donnees:
+    url: "jdbc:mariadb://127.0.0.1:3306/bo_net"
+    utilisateur: shparkour
+    mot-de-passe: CHANGE_ME
+    # Délai maximal de connexion et de réponse de la base, en millisecondes
+    delai-ms: 3000

@@ -5,12 +5,19 @@ api-version: '1.20'
 author: Cry_Legende
 description: Un plugin de parkour avancé avec création de parcours, checkpoints, hologrammes et protections.
 depend: [PlaceholderAPI, FancyHolograms, SHInventoryPages]
+# SHNetwork est facultatif : sans lui, temps et récompenses restent dans playerdata.yml comme avant.
+softdepend: [SHNetwork]
+# Chargées par Paper dans le classloader du plugin : le serveur n'embarque que les pilotes MySQL et SQLite.
+# Seul le mode réseau (temps en MariaDB) s'en sert.
+libraries:
+  - com.zaxxer:HikariCP:5.1.0
+  - org.mariadb.jdbc:mariadb-java-client:3.4.1
 
 commands:
   parkour:
     description: Commande principale du plugin SHParkour.
     aliases: [shpk]
-    usage: "/<command> <create|delete|setup|reload|resettime|top>"
+    usage: "/<command> <create|delete|setup|reload|resettime|top|import>"
 
 permissions:
   shparkour.admin.*:
@@ -24,6 +31,7 @@ permissions:
       shparkour.admin.bypass.commands: true
       shparkour.admin.resettime: true
       shparkour.admin.top: true
+      shparkour.admin.import: true
 
   shparkour.admin.create:
     description: Permet de créer un nouveau parcours avec /parkour create.
@@ -51,4 +59,8 @@ permissions:
 
   shparkour.admin.top:
     description: Permet de consulter le classement complet d'un parcours avec /parkour top.
+    default: op
+
+  shparkour.admin.import:
+    description: Permet de copier playerdata.yml dans la base du réseau avec /parkour import (mode réseau).
     default: op

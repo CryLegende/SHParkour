@@ -21,6 +21,7 @@ Utilisé sur : **Opale**.
 ## Dépendances
 
 - Obligatoires : `PlaceholderAPI`, `FancyHolograms`, `SHInventoryPages`
+- Optionnelles : `SHNetwork` (mode réseau)
 
 ## Commandes
 
@@ -32,6 +33,7 @@ Utilisé sur : **Opale**.
 | `/parkour reload` | Recharge `config.yml` et les parcours. | `shparkour.admin.reload` |
 | `/parkour resettime <parcours> <pseudo\|uuid>` (`rt`) | Retire le meilleur temps d'un joueur, connecté ou non. Le parcours reste « terminé » : la récompense de première fois n'est pas redonnée. | `shparkour.admin.resettime` |
 | `/parkour top <parcours> [page]` | Classement complet avec la date de chaque record. | `shparkour.admin.top` |
+| `/parkour import` | Mode réseau : copie `playerdata.yml` dans la base, sans rien écraser. | `shparkour.admin.import` |
 
 Alias : `/shpk`. Le pseudo de `resettime` est cherché dans les données du plugin (pas de requête Mojang : le proxy est en online-mode et rendrait l'UUID premium au lieu de l'UUID du réseau).
 
@@ -48,9 +50,19 @@ Un hologramme FancyHolograms qui affiche ces placeholders doit avoir un `update_
 
 ## Plusieurs serveurs Opale
 
-SHParkour n'a pas de mode réseau, et n'en a pas besoin. Les quatre parcours (`jump` et `usine` dans le monde `spawn`, `easter`, `christmas`) sont dans des mondes qui n'existent que sur le serveur du spawn, de l'arène et des events : c'est lui qui joue les parcours et qui garde seul `playerdata.yml` (temps, classements, récompenses de première arrivée) et `playerstates/` (inventaire mis de côté pendant la course).
+Les quatre parcours (`jump` et `usine` dans le monde `spawn`, `easter`, `christmas`) sont dans des mondes qui n'existent que sur le serveur du spawn, de l'arène et des events : c'est lui qui joue les parcours, et lui seul garde `playerstates/` (inventaire mis de côté pendant la course : une course ne passe jamais d'un serveur à l'autre, la quitter en changeant de serveur la termine sans temps et rend l'inventaire).
 
-Sur un autre serveur, ces mondes ne sont que des copies où aucun joueur ne reste, donc personne n'y démarre un parcours. Les temps lus par les placeholders y restent ceux de la copie de `playerdata.yml`. Un parcours créé un jour dans un monde présent sur plusieurs serveurs demanderait un stockage partagé (meilleur temps en `LEAST`, récompense de première arrivée en `INSERT IGNORE`, inventaire mis de côté en base).
+Avec **SHNetwork** installé (et `reseau.actif: true`, valeur par défaut), les données des joueurs sont partagées par tous les serveurs de jeu :
+
+- en MariaDB, trois tables au lieu de `playerdata.yml` : `shparkour_players` (pseudo), `shparkour_times` (une ligne par joueur et par parcours terminé : meilleur temps, date du record ; la ligne vaut « parcours terminé ») et `shparkour_checkpoints` (récompenses de checkpoint données) ;
+- à la connexion, une fois que l'autre serveur a fini de sauvegarder le joueur, ses données sont lues en base (la lecture commence à la pré-connexion, sans la bloquer). Tant qu'elles ne sont pas lues, il ne peut pas démarrer de parcours (« vos données sont en cours de chargement ») : sans elles, une arrivée passerait pour sa première et redonnerait la récompense ;
+- chaque arrivée est écrite en base tout de suite, avant que le joueur ne puisse changer de serveur. Le meilleur temps s'écrit en une instruction atomique qui ne garde que le plus petit : deux serveurs ne s'écrasent jamais. Les récompenses de première arrivée et de checkpoint ne sont données qu'une fois ;
+- les classements viennent de la base et sont gardés en mémoire : les placeholders `%shparkour_...%` et `/parkour top` ne touchent jamais la base et montrent les mêmes classements sur tous les serveurs. Ils sont relus après chaque arrivée ou retrait de temps (message du bus SHNetwork aux autres serveurs) et toutes les 15 secondes ;
+- `/parkour resettime` retire le temps en base, quel que soit le serveur où se trouve le joueur, et le fait oublier à celui où il est connecté. Le pseudo est cherché dans la base du réseau. Le parcours reste « terminé » : pas de seconde récompense de première arrivée ;
+- `/parkour import` copie une fois `playerdata.yml` dans la base (rien n'est écrasé : un temps retiré depuis par `resettime` ne revient pas, on peut le relancer). `playerdata.yml` n'est plus ni lu ni écrit en mode réseau ;
+- l'anti-triche (passager, vol, téléportation, effets, commandes) ne change pas : il agit sur le serveur où se joue le parcours.
+
+Sans SHNetwork, ou avec `reseau.actif: false`, ou sans les clés `reseau` dans la configuration, le plugin se comporte comme avant : `playerdata.yml`. Si la base est injoignable au démarrage, il reste en mode local. Les tables se créent toutes seules, ou à la main avec `sql/schema.sql`.
 
 ## Protections pendant un parcours
 
@@ -68,6 +80,7 @@ Vol, téléportation, ender pearls, effets (vitesse, saut, lévitation, chute le
 | `shparkour.admin.bypass.commands` | Permet à un administrateur d'utiliser des commandes normalement bloquées pendant un parkour. | `op` |
 | `shparkour.admin.resettime` | Permet de retirer le temps d'un joueur d'un parcours (classements compris). | `op` |
 | `shparkour.admin.top` | Permet de consulter le classement complet d'un parcours avec /parkour top. | `op` |
+| `shparkour.admin.import` | Permet de copier `playerdata.yml` dans la base du réseau avec /parkour import. | `op` |
 
 ## Configuration
 
@@ -77,10 +90,12 @@ Fichiers par défaut repris du serveur (secrets remplacés par `CHANGE_ME`). Cli
 plugins/SHParkour/
 ├── <a href="src/main/resources/config.yml">config.yml</a>
 ├── <a href="src/main/resources/parkour_template.yml">parkour_template.yml</a>
-└── playerdata.yml
+└── playerdata.yml <i>(mode normal)</i>
 </pre>
 
-`playerdata.yml` (écrit par le plugin, sauvegardé toutes les 5 minutes, aux déconnexions et à l'arrêt) :
+Le fichier `sql/schema.sql` du dépôt crée les tables du mode réseau.
+
+`playerdata.yml` (mode normal ; écrit par le plugin, sauvegardé toutes les 5 minutes, aux déconnexions et à l'arrêt) :
 
 ```yaml
 players:

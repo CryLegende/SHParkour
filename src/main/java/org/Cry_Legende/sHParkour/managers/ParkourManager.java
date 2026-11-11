@@ -168,7 +168,19 @@ public class ParkourManager {
         plugin.getLogger().info("Tous les parcours ont été rechargés.");
     }
 
+    /** Noms internes (en minuscules) des parcours de ce serveur, y compris ceux qui attendent le chargement de leur monde. */
+    public Set<String> knownParkourNames() {
+        Set<String> names = new HashSet<>(parkours.keySet());
+        names.addAll(pendingParkours.keySet());
+        return names;
+    }
+
     public void startParkour(Player player, Parkour parkour) {
+        // Mode réseau : sans ses données lues en base, une arrivée passerait pour la première et redonnerait la récompense.
+        if (!plugin.getPlayerDataManager().isReady(player.getUniqueId())) {
+            player.sendMessage(plugin.getConfigManager().getMessage("network.loading"));
+            return;
+        }
         // Un passager (monture, véhicule, tête d'un autre joueur) se déplace sans effort : pas de parcours.
         if (player.isInsideVehicle()) {
             if (isInParkour(player)) {
