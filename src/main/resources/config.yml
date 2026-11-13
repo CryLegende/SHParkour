@@ -17,9 +17,9 @@
 #
 # Autre permission : shparkour.admin.bypass.commands (commandes autorisées pendant un parcours).
 #
-# Plusieurs serveurs Opale : les parcours (jump et usine dans le monde spawn, easter, christmas) sont tous dans
-# des mondes qui n'existent que sur le serveur du spawn, c'est lui qui joue les parcours (et lui seul garde
-# playerstates/, l'inventaire mis de côté pendant la course). Avec SHNetwork (voir la section 'reseau' en bas du
+# Plusieurs serveurs de jeu : les parcours sont dans des mondes qui n'existent que sur un seul serveur (par exemple
+# celui du spawn), c'est lui qui joue les parcours (et lui seul garde playerstates/, l'inventaire mis de côté pendant
+# la course). Avec SHNetwork (voir la section 'reseau' en bas du
 # fichier), les temps, les parcours terminés, les récompenses de checkpoint et les classements sont dans une base
 # partagée : les placeholders %shparkour_...% et /parkour top montrent les mêmes données sur tous les serveurs.
 # Sans SHNetwork, rien ne change : playerdata.yml reste sur ce serveur-là (et sur un autre serveur, les temps lus
@@ -148,7 +148,7 @@ reseau:
   # Intervalle, en secondes, entre deux relectures des classements en base (en plus de celle qui suit chaque changement)
   cache-classements-secondes: 15
   base-de-donnees:
-    url: "jdbc:mariadb://127.0.0.1:3306/bo_net"
+    url: "jdbc:mariadb://127.0.0.1:3306/minecraft"
     utilisateur: shparkour
     mot-de-passe: CHANGE_ME
     # Délai maximal de connexion et de réponse de la base, en millisecondes
