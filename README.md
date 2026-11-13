@@ -48,9 +48,9 @@ Alias : `/shpk`. Le pseudo de `resettime` est cherché dans les données du plug
 
 Un hologramme FancyHolograms qui affiche ces placeholders doit avoir un `update_text_interval` (par exemple `10s`), sinon son texte n'est jamais recalculé et un temps retiré reste affiché.
 
-## Plusieurs serveurs Opale
+## Plusieurs serveurs de jeu
 
-Les quatre parcours (`jump` et `usine` dans le monde `spawn`, `easter`, `christmas`) sont dans des mondes qui n'existent que sur le serveur du spawn, de l'arène et des events : c'est lui qui joue les parcours, et lui seul garde `playerstates/` (inventaire mis de côté pendant la course : une course ne passe jamais d'un serveur à l'autre, la quitter en changeant de serveur la termine sans temps et rend l'inventaire).
+Les parcours sont dans des mondes qui n'existent que sur un seul serveur (par exemple celui du spawn) : c'est lui qui joue les parcours, et lui seul garde `playerstates/` (inventaire mis de côté pendant la course : une course ne passe jamais d'un serveur à l'autre, la quitter en changeant de serveur la termine sans temps et rend l'inventaire).
 
 Avec **SHNetwork** installé (et `reseau.actif: true`, valeur par défaut), les données des joueurs sont partagées par tous les serveurs de jeu :
 
