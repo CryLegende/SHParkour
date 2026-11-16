@@ -1,0 +1,62 @@
+# ======================================================================== #
+#                       SHParkour - Messages (messages.yml)                #
+# ======================================================================== #
+#
+# Textes envoyés aux joueurs et aux administrateurs, codes couleur avec '&'. Variables selon le message :
+# {parkour}, {time}, {index}, {player}, {medal}, {name}, {file}, {players}, {parkours}, {checkpoints}, {present}, {read}.
+# /parkour reload relit ce fichier ; une clé absente prend le texte du jar.
+# Au premier démarrage de la version 1.1, les textes de l'ancienne section « messages: » de config.yml sont repris ici.
+
+no-permission: "&7&l« &c&lSH &8&l» &7Vous n'avez pas la permission d'exécuter cette commande."
+player-only: "&7&l« &c&lSH &8&l» &7Cette commande ne peut être exécutée que par un joueur."
+parkour-not-found: "&7&l« &c&lSH &8&l» &7Le parcours '&c{parkour}&7' n'a pas été trouvé."
+parkour-already-exists: "&7&l« &c&lSH &8&l» &7Un parcours avec le nom '&c{parkour}&7' existe déjà."
+parkour-created: "&7&l« &a&lSH &8&l» &7Le parcours '&a{parkour}&7' a été créé ! Utilisez &b/parkour setup {parkour} &7pour le configurer."
+parkour-deleted: "&7&l« &a&lSH &8&l» &7Le parcours '&a{parkour}&7' a été supprimé."
+parkour-reloaded: "&7&l« &a&lSH &8&l» &7La configuration des parcours a été rechargée &aavec succès&7."
+reset-time-success: "&7&l« &a&lSH &8&l» &7Le temps du joueur &a{player} &7sur le parcours &b{parkour} &7a été réinitialisé &aavec succès&7."
+reset-time-no-time: "&7&l« &c&lSH &8&l» &7Le joueur &c{player} &7n'a pas de temps enregistré sur le parcours &b{parkour}&7."
+player-not-found-for-reset: "&7&l« &c&lSH &8&l» &7Le joueur &c{player} &7n'a pas été trouvé ou n'a jamais joué sur le serveur."
+
+# Messages de setup
+setup:
+  set-start: "&7&l« &a&lSH &8&l» &7Le spawn du parcours '&a{parkour}&7' a été défini à votre position."
+  set-end: "&7&l« &a&lSH &8&l» &7La fin du parcours '&a{parkour}&7' a été définie à votre position."
+  add-checkpoint: "&7&l« &a&lSH &8&l» &7Checkpoint &a#{index} &7ajouté au parcours '&a{parkour}&7'."
+  set-respawn: "&7&l« &a&lSH &8&l» &7Le point de respawn (en cas de chute) a été défini."
+  set-endspawn: "&7&l« &a&lSH &8&l» &7Le point de téléportation de fin a été défini."
+  set-displayname: "&7&l« &a&lSH &8&l» &7Le nom d'affichage du parcours a été changé pour '&a{name}&7'."
+
+# Messages en jeu (ces messages sont souvent affichés directement au joueur, sans le préfixe lourd)
+parkour-join: "&7&l« &e&lSH &8&l» &7Vous avez commencé le parcours &e{parkour}&7."
+parkour-leave: "&7&l« &e&lSH &8&l» &7Vous avez quitté le parcours &e{parkour}&7."
+parkour-finish: "&7&l« &a&lSH &8&l» &7Félicitations ! Vous avez terminé le parcours &b{parkour} &7en &a{time}&7."
+new-best-time: "&7&l« &a&lSH &8&l» &7Nouveau record personnel ! Votre nouveau meilleur temps est &a{time}&7."
+checkpoint-reached: "&7&l« &a&lSH &8&l» &7Checkpoint &a#{index} &7atteint !"
+checkpoints-missing: "&7&l« &c&lSH &8&l» &7Vous devez passer &ctous les checkpoints &7avant de finir !"
+time-expired: "&7&l« &c&lSH &8&l» &7Temps écoulé ! Vous avez été retiré du parcours &c{parkour}&7."
+parkour-not-configured: "&7&l« &c&lSH &8&l» &7Le parcours &c{parkour} &7n'est pas encore configuré (pas de départ)."
+
+# Messages de protection
+protection:
+  fly-denied: "&7&l« &c&lSH &8&l» &7Le vol est désactivé pendant un parcours."
+  teleport-denied: "&7&l« &c&lSH &8&l» &7La téléportation est désactivée pendant un parcours."
+  effects-denied: "&7&l« &c&lSH &8&l» &7Les effets de potions sont désactivés pendant un parcours."
+  item-use-denied: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas utiliser cet objet pendant un parcours."
+  command-denied: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas utiliser cette commande pendant un parcours."
+  # Joueur devenu passager (monture, véhicule, assis sur un autre joueur) : il sort du parcours.
+  vehicle-denied: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas être &cporté &7pendant un parcours : vous l'avez quitté."
+
+# Mode réseau (SHNetwork)
+network:
+  loading: "&7&l« &e&lSH &8&l» &7Vos données de parcours sont en cours de chargement, réessayez dans un instant."
+  database-error: "&7&l« &c&lSH &8&l» &7La base du réseau ne répond pas."
+  import-done: "&7&l« &a&lSH &8&l» &7Importation terminée : &a{players} &7joueur(s), &a{parkours} &7parcours et &a{checkpoints} &7récompense(s) de checkpoint ajoutés, &a{present} &7déjà présent(s) (&a{read} &7joueur(s) lus)."
+  import-failed: "&7&l« &c&lSH &8&l» &7L'importation a échoué, &cvérifiez la console&7."
+  import-no-network: "&7&l« &c&lSH &8&l» &7Cette commande demande le &cmode réseau &7(SHNetwork installé et base joignable)."
+
+# Médailles de temps (clé « medailles » du fichier d'un parcours)
+medal-earned: "&7&l« &a&lSH &8&l» &7Médaille {medal}&7 obtenue sur &b{parkour}&7 !"
+
+# Rechargement
+reload-failed: "&7&l« &c&lSH &8&l» &7{file} n'est pas un YAML valide, &crien n'a été rechargé&7 (voir la console)."

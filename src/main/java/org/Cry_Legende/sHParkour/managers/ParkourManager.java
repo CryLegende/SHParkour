@@ -5,11 +5,14 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.Cry_Legende.sHInventoryPages.api.ISHInventoryPagesAPI;
 import org.Cry_Legende.sHParkour.SHParkour;
+import org.Cry_Legende.sHParkour.objects.Medal;
+import org.Cry_Legende.sHParkour.objects.MedalEvaluator;
 import org.Cry_Legende.sHParkour.objects.Parkour;
 import org.Cry_Legende.sHParkour.objects.ParkourSession;
 import org.Cry_Legende.sHParkour.utils.LocationUtil;
 import org.Cry_Legende.sHParkour.utils.TimeUtil;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -261,6 +264,7 @@ public class ParkourManager {
             plugin.getLogger().info(player.getName() + " a termine '" + parkour.getInternalName() + "' en " + formattedTime + "s"
                 + (result.newBest() ? " (record, ancien : " + TimeUtil.formatTime(result.previousBest()) + ")" : ""));
             handleRewards(player, parkour, result.firstCompletion());
+            handleMedals(player, parkour, time, formattedTime);
         } else {
             player.sendMessage(plugin.getConfigManager().getMessage("parkour-leave").replace("{parkour}", parkour.getDisplayName()));
         }
@@ -334,6 +338,36 @@ public class ParkourManager {
         for (String cmd : commands) {
             String processedCmd = cmd.replace("{player}", player.getName()).replace("{parkour_display_name}", parkour.getDisplayName());
             plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), processedCmd);
+        }
+    }
+
+    /**
+     * Médailles de temps : toutes celles que ce temps atteint et que le joueur n'a pas encore, une fois chacune.
+     * La médaille est notée comme donnée avant l'exécution de ses commandes : une commande qui échoue ne la redonne pas.
+     */
+    private void handleMedals(Player player, Parkour parkour, long time, String formattedTime) {
+        List<Medal> medals = parkour.getMedals();
+        if (medals.isEmpty()) return;
+        PlayerDataManager data = plugin.getPlayerDataManager();
+        UUID uuid = player.getUniqueId();
+        String parkourName = parkour.getInternalName();
+        for (int position : MedalEvaluator.reached(medals, time, p -> data.hasClaimedMedal(uuid, parkourName, p))) {
+            Medal medal = medals.get(position);
+            data.setMedalClaimed(uuid, parkourName, position);
+            String coloredName = ChatColor.translateAlternateColorCodes('&', medal.name());
+            String plainName = ChatColor.stripColor(coloredName);
+            player.sendMessage(plugin.getConfigManager().getMessage("medal-earned")
+                .replace("{medal}", coloredName).replace("{parkour}", parkour.getDisplayName()));
+            plugin.getLogger().info(player.getName() + " a obtenu la médaille '" + plainName + "' sur '" + parkourName + "' en " + formattedTime + "s");
+            for (String cmd : medal.commands()) {
+                String processedCmd = cmd
+                    .replace("{player}", player.getName())
+                    .replace("{parkour_display_name}", parkour.getDisplayName())
+                    .replace("{medal}", plainName)
+                    .replace("{time}", formattedTime)
+                    .replace("{time_ms}", String.valueOf(time));
+                plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), processedCmd);
+            }
         }
     }
 

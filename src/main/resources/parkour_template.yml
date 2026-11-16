@@ -67,3 +67,24 @@ checkpoint-rewards:
   commands:
     - "eco give {player} 10"
     - "say {player} a atteint le checkpoint #{checkpoint_index} sur {parkour_display_name}"
+
+# --- Medailles de temps (optionnel) ---
+# Une medaille se gagne une fois par joueur quand une arrivee est faite en moins de 'temps-max' secondes ; une arrivee
+# rapide gagne d'un coup toutes les medailles atteintes. L'ordre de la liste ne change jamais (il identifie la
+# medaille) : ajouter les nouvelles a la fin.
+# Placeholders disponibles dans 'commandes':
+# - {player}
+# - {parkour_display_name}
+# - {medal} (nom sans couleur)
+# - {time} (temps formate) et {time_ms}
+medailles: []
+# Exemple :
+# medailles:
+#   - nom: "&6Bronze"
+#     temps-max: 120
+#     commandes:
+#       - "eco give {player} 50"
+#   - nom: "&fArgent"
+#     temps-max: 90
+#     commandes:
+#       - "eco give {player} 100"

@@ -3,7 +3,11 @@ package org.Cry_Legende.sHParkour.placeholders;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.Cry_Legende.sHParkour.SHParkour;
 import org.Cry_Legende.sHParkour.managers.PlayerDataManager;
+import org.Cry_Legende.sHParkour.objects.Medal;
+import org.Cry_Legende.sHParkour.objects.MedalEvaluator;
+import org.Cry_Legende.sHParkour.objects.Parkour;
 import org.Cry_Legende.sHParkour.utils.TimeUtil;
+import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -20,6 +24,8 @@ import java.util.regex.Pattern;
  *     <li>%shparkour_&lt;parcours&gt;_time_ms% : meilleur temps du joueur en millisecondes</li>
  *     <li>%shparkour_&lt;parcours&gt;_rank% : position du joueur au classement</li>
  *     <li>%shparkour_&lt;parcours&gt;_top_&lt;n&gt;_name|time|ms% : n-ième du classement</li>
+ *     <li>%shparkour_&lt;parcours&gt;_medals% : nombre de médailles de temps obtenues par le joueur</li>
+ *     <li>%shparkour_&lt;parcours&gt;_medal% : sa médaille la plus difficile (nom sans couleur), N/A sinon</li>
  * </ul>
  * Les classements viennent du cache de PlayerDataManager : un temps retiré par /parkour resettime
  * disparaît au rafraîchissement suivant de l'hologramme ou du menu qui affiche le placeholder.
@@ -28,7 +34,7 @@ public class ParkourExpansion extends PlaceholderExpansion {
 
     private static final String NONE = "N/A";
     private static final Pattern TOP = Pattern.compile("^(.+)_top_(\\d+)_(name|time|ms)$");
-    private static final Pattern PERSONAL = Pattern.compile("^(.+)_(time_formatted|time_ms|rank)$");
+    private static final Pattern PERSONAL = Pattern.compile("^(.+)_(time_formatted|time_ms|rank|medals|medal)$");
 
     private final SHParkour plugin;
 
@@ -76,6 +82,8 @@ public class ParkourExpansion extends PlaceholderExpansion {
             return switch (personal.group(2)) {
                 case "time_formatted" -> TimeUtil.formatTime(time);
                 case "time_ms" -> time != -1 ? String.valueOf(time) : NONE;
+                case "medals" -> String.valueOf(medalCount(data, player, parkour));
+                case "medal" -> bestMedal(data, player, parkour);
                 default -> {
                     Integer rank = data.getLeaderboard(parkour).ranks().get(player.getUniqueId());
                     yield rank != null ? String.valueOf(rank) : NONE;
@@ -84,6 +92,23 @@ public class ParkourExpansion extends PlaceholderExpansion {
         }
 
         return null; // Placeholder inconnu : PlaceholderAPI le laisse tel quel, l'erreur se voit.
+    }
+
+    private int medalCount(PlayerDataManager data, OfflinePlayer player, String parkourName) {
+        Parkour parkour = plugin.getParkourManager().getParkour(parkourName);
+        if (parkour == null) {
+            return 0;
+        }
+        return MedalEvaluator.count(parkour.getMedals(), position -> data.hasClaimedMedal(player.getUniqueId(), parkourName, position));
+    }
+
+    private String bestMedal(PlayerDataManager data, OfflinePlayer player, String parkourName) {
+        Parkour parkour = plugin.getParkourManager().getParkour(parkourName);
+        if (parkour == null) {
+            return NONE;
+        }
+        Medal best = MedalEvaluator.best(parkour.getMedals(), position -> data.hasClaimedMedal(player.getUniqueId(), parkourName, position));
+        return best == null ? NONE : ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', best.name()));
     }
 
     private String topValue(PlayerDataManager data, String parkour, String rankText, String type) {

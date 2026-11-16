@@ -150,8 +150,12 @@ public class ParkourCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(plugin.getConfigManager().getMessage("no-permission"));
             return;
         }
-        // config.yml (messages, objets, commandes autorisées) puis les parcours.
-        plugin.getConfigManager().reloadConfigs();
+        // config.yml (objets, commandes autorisées), messages.yml puis les parcours (médailles comprises).
+        String failed = plugin.getConfigManager().reloadConfigs();
+        if (failed != null) {
+            sender.sendMessage(plugin.getConfigManager().getMessage("reload-failed").replace("{file}", failed));
+            return;
+        }
         sender.sendMessage(plugin.getConfigManager().getMessage("parkour-reloaded"));
     }
 

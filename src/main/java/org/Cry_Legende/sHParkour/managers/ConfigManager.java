@@ -3,12 +3,14 @@ package org.Cry_Legende.sHParkour.managers;
 import org.Cry_Legende.sHParkour.SHParkour;
 import org.bukkit.ChatColor;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -20,6 +22,7 @@ public class ConfigManager {
 
     private final SHParkour plugin;
     private FileConfiguration mainConfig;
+    private FileConfiguration messages;
     private File parkoursFolder;
 
     public ConfigManager(SHParkour plugin) {
@@ -29,6 +32,7 @@ public class ConfigManager {
     public void loadConfigs() {
         plugin.saveDefaultConfig();
         mainConfig = plugin.getConfig();
+        messages = loadMessages(false);
 
         parkoursFolder = new File(plugin.getDataFolder(), "parkours");
         if (!parkoursFolder.exists()) {
@@ -36,18 +40,79 @@ public class ConfigManager {
         }
     }
 
-    public void reloadConfigs() {
+    /**
+     * Relit config.yml, messages.yml et les parcours. Un fichier qui n'est pas du YAML valide n'est pas appliqué : la
+     * configuration en mémoire reste celle d'avant, et le fichier fautif est nommé en console. Rend le nom de ce fichier,
+     * ou null si tout est relu.
+     */
+    public String reloadConfigs() {
+        File configFile = new File(plugin.getDataFolder(), "config.yml");
+        File messagesFile = new File(plugin.getDataFolder(), "messages.yml");
+        for (File file : new File[]{configFile, messagesFile}) {
+            if (!file.exists()) continue;
+            try {
+                new YamlConfiguration().load(file);
+            } catch (IOException | org.bukkit.configuration.InvalidConfigurationException e) {
+                plugin.getLogger().log(Level.SEVERE, file.getName() + " n'est pas un YAML valide, rechargement annulé : " + e.getMessage());
+                return file.getName();
+            }
+        }
         plugin.reloadConfig();
         mainConfig = plugin.getConfig();
+        messages = loadMessages(true);
         plugin.getParkourManager().reloadParkours();
+        return null;
     }
 
     /**
-     * Message de config.yml. getString(path) sans valeur par défaut explicite retombe sur le config.yml
-     * du jar : un message ajouté dans une nouvelle version s'affiche même si le fichier du serveur ne l'a pas.
+     * messages.yml du serveur, avec celui du jar en valeurs par défaut : un message ajouté dans une nouvelle version
+     * s'affiche même si le fichier du serveur ne l'a pas. Au premier démarrage le fichier est créé à partir du jar, et les
+     * textes de la section « messages: » d'un config.yml d'avant la version 1.1 y sont repris.
+     */
+    private FileConfiguration loadMessages(boolean reloading) {
+        File file = new File(plugin.getDataFolder(), "messages.yml");
+        if (!file.exists() && !reloading) {
+            createMessagesFile(file);
+        }
+        YamlConfiguration loaded = YamlConfiguration.loadConfiguration(file);
+        InputStream defaults = plugin.getResource("messages.yml");
+        if (defaults != null) {
+            try (InputStreamReader reader = new InputStreamReader(defaults, StandardCharsets.UTF_8)) {
+                loaded.setDefaults(YamlConfiguration.loadConfiguration(reader));
+            } catch (IOException e) {
+                plugin.getLogger().log(Level.WARNING, "messages.yml du jar illisible", e);
+            }
+        }
+        return loaded;
+    }
+
+    private void createMessagesFile(File file) {
+        plugin.saveResource("messages.yml", false);
+        ConfigurationSection legacy = mainConfig.getConfigurationSection("messages");
+        if (legacy == null) {
+            return;
+        }
+        YamlConfiguration created = YamlConfiguration.loadConfiguration(file);
+        int moved = 0;
+        for (String key : legacy.getKeys(true)) {
+            if (legacy.isString(key) && !legacy.getString(key).equals(created.getString(key))) {
+                created.set(key, legacy.getString(key));
+                moved++;
+            }
+        }
+        try {
+            created.save(file);
+            plugin.getLogger().info("messages.yml créé, " + moved + " texte(s) repris de la section 'messages' de config.yml (qui peut être supprimée).");
+        } catch (IOException e) {
+            plugin.getLogger().log(Level.WARNING, "messages.yml créé sans les textes de config.yml", e);
+        }
+    }
+
+    /**
+     * Message de messages.yml : le texte du serveur, sinon celui du jar.
      */
     public String getMessage(String path) {
-        String message = mainConfig.getString("messages." + path);
+        String message = messages.getString(path);
         if (message == null) {
             message = "&cMessage non trouve: " + path;
         }
@@ -127,6 +192,7 @@ public class ConfigManager {
         builder.append("# - {player}").append(lineSeparator);
         builder.append("# - {parkour_display_name}").append(lineSeparator);
         builder.append("# - {checkpoint_index} (uniquement dans checkpoint-rewards)").append(lineSeparator);
+        builder.append("# - {medal}, {time}, {time_ms} (uniquement dans medailles)").append(lineSeparator);
         builder.append("#").append(lineSeparator);
         builder.append("# Placeholders PlaceholderAPI pour ce parcours:").append(lineSeparator);
         builder.append("# - %shparkour_").append(parkourName).append("_time_formatted%").append(lineSeparator);
@@ -136,7 +202,9 @@ public class ConfigManager {
         builder.append("# - %shparkour_").append(parkourName).append("_top_2_name%").append(lineSeparator);
         builder.append("# - %shparkour_").append(parkourName).append("_top_2_time%").append(lineSeparator);
         builder.append("# - %shparkour_").append(parkourName).append("_top_3_name%").append(lineSeparator);
-        builder.append("# - %shparkour_").append(parkourName).append("_top_3_time%");
+        builder.append("# - %shparkour_").append(parkourName).append("_top_3_time%").append(lineSeparator);
+        builder.append("# - %shparkour_").append(parkourName).append("_medals% (medailles obtenues)").append(lineSeparator);
+        builder.append("# - %shparkour_").append(parkourName).append("_medal% (la plus difficile)");
         return builder.toString();
     }
 

@@ -14,7 +14,7 @@
 
 ## Présentation
 
-Un plugin de parkour avancé avec création de parcours, checkpoints, hologrammes et protections.
+Un plugin de parkour avancé avec création de parcours, checkpoints, hologrammes, médailles de temps et protections.
 
 Utilisé sur : **Opale**.
 
@@ -30,7 +30,7 @@ Utilisé sur : **Opale**.
 | `/parkour create <nom>` | Crée un parcours. | `shparkour.admin.create` |
 | `/parkour delete <nom>` | Supprime un parcours. | `shparkour.admin.delete` |
 | `/parkour setup <nom> <option>` | `setstart`, `setend`, `addcheckpoint`, `editcheckpoint`, `deletecheckpoint`, `setrespawn`, `setendspawn`, `setname`. | `shparkour.admin.setup` |
-| `/parkour reload` | Recharge `config.yml` et les parcours. | `shparkour.admin.reload` |
+| `/parkour reload` | Recharge `config.yml`, `messages.yml` et les parcours (médailles comprises). Un fichier qui n'est pas du YAML valide n'est pas appliqué : rien n'est rechargé et le fichier est nommé. | `shparkour.admin.reload` |
 | `/parkour resettime <parcours> <pseudo\|uuid>` (`rt`) | Retire le meilleur temps d'un joueur, connecté ou non. Le parcours reste « terminé » : la récompense de première fois n'est pas redonnée. | `shparkour.admin.resettime` |
 | `/parkour top <parcours> [page]` | Classement complet avec la date de chaque record. | `shparkour.admin.top` |
 | `/parkour import` | Mode réseau : copie `playerdata.yml` dans la base, sans rien écraser. | `shparkour.admin.import` |
@@ -45,8 +45,30 @@ Alias : `/shpk`. Le pseudo de `resettime` est cherché dans les données du plug
 | `%shparkour_<parcours>_time_ms%` | Meilleur temps du joueur en millisecondes |
 | `%shparkour_<parcours>_rank%` | Position du joueur au classement |
 | `%shparkour_<parcours>_top_<n>_name%` / `_time%` / `_ms%` | n-ième du classement |
+| `%shparkour_<parcours>_medals%` | Nombre de médailles de temps obtenues par le joueur |
+| `%shparkour_<parcours>_medal%` | Sa médaille la plus difficile (nom sans couleur), `N/A` sinon |
 
 Un hologramme FancyHolograms qui affiche ces placeholders doit avoir un `update_text_interval` (par exemple `10s`), sinon son texte n'est jamais recalculé et un temps retiré reste affiché.
+
+## Médailles de temps
+
+Chaque fichier de parcours peut avoir une liste `medailles`. Une médaille a un nom (codes couleur `&` permis), un temps maximal en secondes et des commandes console. Elle se gagne **une seule fois par joueur** : à chaque arrivée, toutes les médailles dont le temps est atteint (temps égal compris) et que le joueur n'a pas encore sont données, commandes exécutées dans l'ordre de la liste. Une arrivée très rapide les gagne donc toutes d'un coup, et une arrivée plus lente ne redonne rien. Les récompenses de première arrivée (`rewards`, `first-time-only`) ne changent pas.
+
+```yaml
+medailles:
+  - nom: "&6Bronze"
+    temps-max: 120          # secondes, décimales permises
+    commandes:
+      - "eco give {player} 50"
+  - nom: "&fArgent"
+    temps-max: 90
+    commandes:
+      - "eco give {player} 100"
+```
+
+Variables des commandes : `{player}`, `{parkour_display_name}`, `{medal}` (nom sans couleur), `{time}` (temps formaté) et `{time_ms}`. Le message envoyé au joueur est `medal-earned` de `messages.yml`.
+
+L'**ordre de la liste ne change jamais** : la position d'une médaille l'identifie, et les médailles déjà données sont mémorisées avec les récompenses de checkpoint (index 1000 + position, donc dans `checkpoint-rewards` de `playerdata.yml` ou dans la table `shparkour_checkpoints` en mode réseau, sans nouvelle table). Une médaille de plus s'ajoute à la fin ; les joueurs qui avaient déjà les autres la gagnent à leur prochaine arrivée assez rapide. Une entrée dont `temps-max` n'est pas un nombre supérieur à 0 est ignorée avec un avertissement en console (elle garde sa place dans la liste). `/parkour reload` relit la liste. `/parkour resettime` ne retire pas les médailles déjà données.
 
 ## Plusieurs serveurs de jeu
 
@@ -89,7 +111,8 @@ Fichiers par défaut, avec des valeurs d'exemple. Cliquez sur un fichier pour l'
 <pre>
 plugins/SHParkour/
 ├── <a href="src/main/resources/config.yml">config.yml</a>
-├── <a href="src/main/resources/parkour_template.yml">parkour_template.yml</a>
+├── <a href="src/main/resources/messages.yml">messages.yml</a>
+├── parkours/<i>&lt;nom&gt;.yml</i> <i>(modèle : <a href="src/main/resources/parkour_template.yml">parkour_template.yml</a>)</i>
 └── playerdata.yml <i>(mode normal)</i>
 </pre>
 
@@ -108,6 +131,7 @@ players:
     completed: [usine]      # parcours déjà terminés : récompense de première fois acquise
     checkpoint-rewards:
       easter: [0, 1]        # récompenses de checkpoint déjà données
+      usine: [1000, 1001]   # médailles de temps déjà données (1000 + position dans la liste medailles)
 ```
 
 ## Compilation

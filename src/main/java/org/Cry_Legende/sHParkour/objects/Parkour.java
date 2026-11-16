@@ -28,6 +28,7 @@ public class Parkour {
     private Material checkpointPlate;
     private Material endPlate;
     private long maxTime; // en millisecondes
+    private List<Medal> medals = List.of();
 
     public Parkour(SHParkour plugin, String internalName) {
         this.plugin = plugin;
@@ -52,6 +53,9 @@ public class Parkour {
 
         int maxTimeSeconds = config.getInt("max-time", 0);
         this.maxTime = (maxTimeSeconds > 0) ? maxTimeSeconds * 1000L : 0;
+
+        this.medals = MedalEvaluator.parse(config.getMapList("medailles"),
+            warning -> plugin.getLogger().warning("Parcours " + internalName + ", " + warning));
 
         this.checkpoints.clear();
         List<String> checkpointStrings = config.getStringList("checkpoints");
@@ -148,6 +152,11 @@ public class Parkour {
 
     public long getMaxTime() {
         return maxTime;
+    }
+
+    /** Médailles de temps du parcours, dans l'ordre du fichier (la position sert d'identifiant). */
+    public List<Medal> getMedals() {
+        return medals;
     }
 
     /** Vrai si une des positions du parcours se trouve dans ce monde. */

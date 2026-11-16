@@ -3,6 +3,7 @@ package org.Cry_Legende.sHParkour.managers;
 import org.Cry_Legende.sHParkour.SHParkour;
 import org.Cry_Legende.sHParkour.network.NetworkParkour;
 import org.Cry_Legende.sHParkour.network.ParkourDatabase;
+import org.Cry_Legende.sHParkour.objects.MedalEvaluator;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -39,7 +40,7 @@ import java.util.logging.Level;
  *     best-times: {usine: 19850}   # meilleur temps en ms
  *     record-dates: {usine: ...}   # date (epoch ms) du meilleur temps
  *     completed: [usine]           # parcours déjà terminés : la récompense de première fois est acquise
- *     checkpoint-rewards: {...}    # récompenses de checkpoint déjà données
+ *     checkpoint-rewards: {...}    # récompenses de checkpoint déjà données ; les médailles de temps y sont aussi (index 1000 + position)
  * </pre>
  * Les écritures se font sur le thread principal ; les placeholders peuvent lire depuis un autre thread.
  */
@@ -479,6 +480,20 @@ public class PlayerDataManager implements NetworkParkour.Sink {
         if (network != null) {
             network.claimCheckpoint(uuid, parkourName.toLowerCase(Locale.ROOT), checkpointIndex);
         }
+    }
+
+    // --- Médailles de temps ----------------------------------------------------------------------
+
+    /**
+     * Les médailles sont mémorisées avec les récompenses de checkpoint, sous l'index {@link MedalEvaluator#CLAIM_BASE} +
+     * position de la médaille dans la liste du parcours : même stockage local et même table en mode réseau.
+     */
+    public boolean hasClaimedMedal(UUID uuid, String parkourName, int position) {
+        return hasClaimedCheckpointReward(uuid, parkourName, MedalEvaluator.claimIndex(position));
+    }
+
+    public void setMedalClaimed(UUID uuid, String parkourName, int position) {
+        setCheckpointRewardClaimed(uuid, parkourName, MedalEvaluator.claimIndex(position));
     }
 
     // ------------------------------------------------------------------ mode réseau
