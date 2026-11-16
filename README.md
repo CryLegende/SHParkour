@@ -72,6 +72,10 @@ L'**ordre de la liste ne change jamais** : la position d'une médaille l'identif
 
 ## Plusieurs serveurs de jeu
 
+## Objets reçus pendant un parcours
+
+L'inventaire du joueur est mis de côté dans `playerstates/` pendant la course. Un objet qui arrive dans l'inventaire de parcours (clé de vote, lot d'un autre plugin, objet ramassé) en est retiré dès qu'il est vu (toutes les 10 ticks), ajouté au fichier d'état et rendu à la fin du parcours, après l'inventaire (fini, quitté, déconnexion, arrêt du serveur). Le joueur est prévenu à l'arrivée et au retour (messages.yml, `objets-recus.*`). Les autres plugins peuvent donc donner leurs récompenses directement. Les objets du parcours portent une marque de données (`shparkour:item`) ; les objets d'interface d'autres plugins listés dans `objets-recus.ignorer` (par défaut la case de pages de SHInventoryPages) restent en place. Une marque de session posée sur le joueur évite de compter deux fois ses objets après un arrêt brutal.
+
 Les parcours sont dans des mondes qui n'existent que sur un seul serveur (par exemple celui du spawn) : c'est lui qui joue les parcours, et lui seul garde `playerstates/` (inventaire mis de côté pendant la course : une course ne passe jamais d'un serveur à l'autre, la quitter en changeant de serveur la termine sans temps et rend l'inventaire).
 
 Avec **SHNetwork** installé (et `reseau.actif: true`, valeur par défaut), les données des joueurs sont partagées par tous les serveurs de jeu :

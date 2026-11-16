@@ -45,6 +45,15 @@ fall-protection:
   # avant d'être téléporté. Mettre à 0 pour désactiver.
   max-fall-distance: 15.0
 
+# Objets reçus pendant un parcours (clé de vote, lot d'un autre plugin, objet ramassé) : retirés de l'inventaire de
+# parcours dès leur arrivée (moins d'une demi-seconde), gardés dans playerstates/ et rendus à la fin du parcours, après
+# l'inventaire (messages objets-recus.*). Les autres plugins peuvent donc donner leurs récompenses directement.
+objets-recus:
+  # Objets d'interface d'autres plugins (clé de données namespace:clé) laissés en place : ce ne sont pas des objets
+  # reçus. Par défaut, la case de pages de SHInventoryPages.
+  ignorer:
+    - "shinventorypages:is_switcher"
+
 # Commandes bloquées pendant le parkour (en minuscules)
 allowed-commands:
   - "m"

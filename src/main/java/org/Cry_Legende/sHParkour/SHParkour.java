@@ -10,6 +10,7 @@ import org.Cry_Legende.sHParkour.network.ParkourDatabase;
 import org.Cry_Legende.sHParkour.network.ShNetworkLink;
 import org.Cry_Legende.sHParkour.objects.Parkour;
 import org.Cry_Legende.sHParkour.placeholders.ParkourExpansion;
+import org.Cry_Legende.sHParkour.utils.ParkourItems;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -65,6 +66,7 @@ public final class SHParkour extends JavaPlugin {
         // FIN AJOUT
 
         // Initialisation des managers
+        ParkourItems.init(this);
         this.configManager = new ConfigManager(this);
         this.blockManager = new BlockManager(this);
         this.playerStateManager = new PlayerStateManager(this);

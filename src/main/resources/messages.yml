@@ -38,6 +38,13 @@ time-expired: "&7&l« &c&lSH &8&l» &7Temps écoulé ! Vous avez été retiré d
 parkour-not-configured: "&7&l« &c&lSH &8&l» &7Le parcours &c{parkour} &7n'est pas encore configuré (pas de départ)."
 
 # Messages de protection
+# Objets reçus pendant un parcours (clé de vote, lot d'un autre plugin, objet ramassé)
+objets-recus:
+  # Retiré de l'inventaire de parcours dès son arrivée
+  mis-de-cote: "&7&l« &e&lSH &8&l» &7Vous avez reçu un &eobjet &7pendant le parcours : il vous sera &erendu &7à la fin de celui-ci."
+  # Fin du parcours, après l'inventaire
+  rendus: "&7&l« &a&lSH &8&l» &7Les objets reçus pendant le parcours ont été &aajoutés &7à votre inventaire."
+
 protection:
   fly-denied: "&7&l« &c&lSH &8&l» &7Le vol est désactivé pendant un parcours."
   teleport-denied: "&7&l« &c&lSH &8&l» &7La téléportation est désactivée pendant un parcours."

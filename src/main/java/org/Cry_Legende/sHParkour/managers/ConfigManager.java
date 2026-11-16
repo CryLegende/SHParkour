@@ -1,6 +1,7 @@
 package org.Cry_Legende.sHParkour.managers;
 
 import org.Cry_Legende.sHParkour.SHParkour;
+import org.Cry_Legende.sHParkour.utils.ParkourItems;
 import org.bukkit.ChatColor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
@@ -33,6 +34,7 @@ public class ConfigManager {
         plugin.saveDefaultConfig();
         mainConfig = plugin.getConfig();
         messages = loadMessages(false);
+        ParkourItems.ignore(mainConfig.getStringList("objets-recus.ignorer"), plugin.getLogger());
 
         parkoursFolder = new File(plugin.getDataFolder(), "parkours");
         if (!parkoursFolder.exists()) {
@@ -60,6 +62,7 @@ public class ConfigManager {
         plugin.reloadConfig();
         mainConfig = plugin.getConfig();
         messages = loadMessages(true);
+        ParkourItems.ignore(mainConfig.getStringList("objets-recus.ignorer"), plugin.getLogger());
         plugin.getParkourManager().reloadParkours();
         return null;
     }

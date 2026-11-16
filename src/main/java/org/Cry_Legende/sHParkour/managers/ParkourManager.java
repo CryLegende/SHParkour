@@ -9,6 +9,8 @@ import org.Cry_Legende.sHParkour.objects.Medal;
 import org.Cry_Legende.sHParkour.objects.MedalEvaluator;
 import org.Cry_Legende.sHParkour.objects.Parkour;
 import org.Cry_Legende.sHParkour.objects.ParkourSession;
+import org.Cry_Legende.sHParkour.objects.PlayerState;
+import org.Cry_Legende.sHParkour.utils.ParkourItems;
 import org.Cry_Legende.sHParkour.utils.LocationUtil;
 import org.Cry_Legende.sHParkour.utils.TimeUtil;
 import org.bukkit.Bukkit;
@@ -52,6 +54,7 @@ public class ParkourManager {
     /** Joueurs en cours de téléportation par le plugin (ProtectionListener ne doit pas les sortir du parcours). */
     private final Set<UUID> pluginTeleports = new HashSet<>();
     private BukkitTask actionbarTask;
+    private BukkitTask heldTask;
     /**
      * Métadonnée posée sur le joueur pendant toute la durée d'un parcours.
      * Les autres plugins maison (SHTempFly, SHDoubleJump) la lisent pour se mettre
@@ -66,6 +69,7 @@ public class ParkourManager {
         this.plugin = plugin;
         this.shInventoryPagesAPI = shInventoryPagesAPI;
         startActionbarTask();
+        startHeldTask();
     }
 
     public void loadParkours() {
@@ -207,11 +211,13 @@ public class ParkourManager {
             return;
         }
         // Sans état sauvegardé, vider l'inventaire ferait perdre les objets du joueur.
-        if (!plugin.getPlayerStateManager().saveState(player)) {
+        PlayerState state = plugin.getPlayerStateManager().saveState(player);
+        if (state == null) {
             return;
         }
         player.setGameMode(GameMode.ADVENTURE);
         player.getInventory().clear();
+        ParkourItems.setSession(player, state.getToken());
         player.setHealth(20.0);
         player.setFoodLevel(20);
         player.setSaturation(20f);
@@ -249,7 +255,7 @@ public class ParkourManager {
 
         playerSessions.remove(player.getUniqueId());
         player.removeMetadata(ACTIVE_METADATA_TAG, plugin);
-        plugin.getPlayerStateManager().restoreState(player);
+        PlayerStateManager.Restored restored = plugin.getPlayerStateManager().restoreState(player);
 
         if (finished) {
             long time = session.getElapsedTime();
@@ -272,6 +278,7 @@ public class ParkourManager {
         if (teleportToEndSpawn && parkour.getEndSpawn() != null) {
             safeTeleport(player, parkour.getEndSpawn());
         }
+        afterRestore(player, restored);
     }
 
     /**
@@ -279,6 +286,14 @@ public class ParkourManager {
      */
     public void endParkour(Player player, boolean finished) {
         endParkour(player, finished, true);
+    }
+
+    /** Objets reçus pendant le parcours : ce qui ne rentrait plus est jeté là où le joueur arrive, puis il est prévenu. */
+    private void afterRestore(Player player, PlayerStateManager.Restored restored) {
+        ParkourItems.drop(player, restored.leftovers());
+        if (restored.received() > 0) {
+            player.sendMessage(plugin.getConfigManager().getMessage("objets-recus.rendus"));
+        }
     }
 
     public void restartFromItem(Player player) {
@@ -471,6 +486,35 @@ public class ParkourManager {
             if (player != null) endParkour(player, false);
         });
         if (actionbarTask != null) actionbarTask.cancel();
+        if (heldTask != null) heldTask.cancel();
+    }
+
+    /**
+     * Objet reçu pendant un parcours (clé de vote, lot d'un autre plugin, objet ramassé) : retiré de l'inventaire de
+     * parcours dès qu'il est vu (toutes les 10 ticks), écrit dans le fichier d'état du joueur, rendu à la fin du
+     * parcours après son inventaire. Le joueur est prévenu à chaque arrivée.
+     */
+    private void startHeldTask() {
+        heldTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (playerSessions.isEmpty()) return;
+            for (UUID uuid : new ArrayList<>(playerSessions.keySet())) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player == null || player.isDead()) continue;
+                List<ItemStack> taken = ParkourItems.takeForeign(player);
+                if (taken.isEmpty()) continue;
+                if (!plugin.getPlayerStateManager().hold(player, taken)) {
+                    // Pas d'écriture possible : l'objet reste dans l'inventaire de parcours, rendu à la fin quand même.
+                    ParkourItems.drop(player, ParkourItems.give(player, taken));
+                    continue;
+                }
+                try {
+                    player.saveData();
+                } catch (RuntimeException e) {
+                    plugin.getLogger().warning("Sauvegarde du fichier de " + player.getName() + " impossible : " + e);
+                }
+                player.sendMessage(plugin.getConfigManager().getMessage("objets-recus.mis-de-cote"));
+            }
+        }, 10L, 10L);
     }
 
     private void startActionbarTask() {
@@ -541,6 +585,7 @@ public class ParkourManager {
                 loreComponents.add(LegacyComponentSerializer.legacyAmpersand().deserialize(line).colorIfAbsent(NamedTextColor.GRAY));
             }
             meta.lore(loreComponents);
+            ParkourItems.mark(meta);
             item.setItemMeta(meta);
         }
         player.getInventory().setItem(slot, item);

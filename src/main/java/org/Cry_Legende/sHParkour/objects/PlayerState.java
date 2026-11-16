@@ -1,15 +1,22 @@
 package org.Cry_Legende.sHParkour.objects;
 
+import org.Cry_Legende.sHParkour.utils.ParkourItems;
 import org.bukkit.GameMode;
-import org.bukkit.attribute.Attribute; // IMPORT AJOUTÉ
+import org.bukkit.attribute.Attribute;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
+/**
+ * Ce que le joueur avait en entrant dans un parcours, plus les objets reçus pendant le parcours (mis de côté,
+ * rendus après l'inventaire).
+ */
 public class PlayerState {
 
     private final ItemStack[] inventoryContents;
@@ -23,6 +30,9 @@ public class PlayerState {
     private final float exp;
     private final Collection<PotionEffect> potionEffects;
     private final boolean allowFlight;
+    /** Marque posée sur le joueur quand son inventaire est vidé (null : fichier d'une version sans marque). */
+    private final String token;
+    private final List<ItemStack> heldItems;
 
     /**
      * Crée une nouvelle instance de PlayerState en capturant l'état actuel du joueur.
@@ -41,6 +51,8 @@ public class PlayerState {
         this.exp = player.getExp();
         this.potionEffects = player.getActivePotionEffects();
         this.allowFlight = player.getAllowFlight();
+        this.token = UUID.randomUUID().toString();
+        this.heldItems = new ArrayList<>();
     }
 
     /**
@@ -61,6 +73,11 @@ public class PlayerState {
         this.exp = (float) config.getDouble("experience.exp", 0.0);
         this.potionEffects = (Collection<PotionEffect>) config.get("potion-effects", List.of());
         this.allowFlight = config.getBoolean("allow-flight", false);
+        this.token = config.getString("token");
+        this.heldItems = new ArrayList<>();
+        for (Object value : config.getList("held-items", List.of())) {
+            if (value instanceof ItemStack item && !item.isEmpty()) heldItems.add(item);
+        }
     }
 
     /**
@@ -80,14 +97,37 @@ public class PlayerState {
         config.set("experience.exp", exp);
         config.set("potion-effects", potionEffects);
         config.set("allow-flight", allowFlight);
+        config.set("token", token);
+        config.set("held-items", heldItems.isEmpty() ? null : heldItems);
+    }
+
+    public String getToken() {
+        return token;
+    }
+
+    /** Vrai si l'inventaire actuel du joueur est l'inventaire de parcours de cet état. */
+    public boolean ownsParkourInventory(Player player) {
+        return token != null && token.equals(ParkourItems.session(player));
+    }
+
+    /** Met de côté des objets reçus pendant le parcours. */
+    public void hold(List<ItemStack> items) {
+        heldItems.addAll(items);
     }
 
     /**
      * Restaure l'état sauvegardé sur le joueur spécifié.
      *
      * @param player Le joueur à qui restaurer l'état.
+     * @return les objets reçus pendant le parcours (mis de côté, puis ceux encore dans l'inventaire de parcours), à
+     * ajouter à l'inventaire rendu
      */
-    public void restore(Player player) {
+    public List<ItemStack> restore(Player player) {
+        List<ItemStack> received = new ArrayList<>(heldItems);
+        if (ownsParkourInventory(player)) {
+            received.addAll(ParkourItems.foreign(player));
+        }
+
         // Vider l'état actuel avant de restaurer
         player.getInventory().clear();
         player.getActivePotionEffects().forEach(effect -> player.removePotionEffect(effect.getType()));
@@ -95,17 +135,14 @@ public class PlayerState {
         // Restaurer l'inventaire et l'armure
         player.getInventory().setContents(inventoryContents);
         player.getInventory().setArmorContents(armorContents);
+        ParkourItems.clearSession(player);
 
         // Restaurer le mode de jeu
         player.setGameMode(gameMode);
 
-        // --- CORRECTION APPLIQUÉE ICI ---
-        // On récupère la vie maximale autorisée pour le joueur au moment de la restauration
+        // La vie restaurée ne dépasse pas la vie maximale du joueur au moment du retour
         double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
-        // On s'assure que la vie à restaurer ne dépasse pas ce maximum
-        double healthToRestore = Math.min(this.health, maxHealth);
-        player.setHealth(healthToRestore);
-        // --- FIN DE LA CORRECTION ---
+        player.setHealth(Math.min(this.health, maxHealth));
 
         // Restaurer les autres statistiques
         player.setFoodLevel(foodLevel);
@@ -121,5 +158,6 @@ public class PlayerState {
 
         // Restaurer la capacité de voler
         player.setAllowFlight(allowFlight);
+        return received;
     }
 }
