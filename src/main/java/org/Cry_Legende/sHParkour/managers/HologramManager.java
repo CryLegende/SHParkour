@@ -124,7 +124,6 @@ public class HologramManager {
 
             if (hologramObject != null) {
                 hologramManagerAPI.addHologram(hologramObject);
-                plugin.getLogger().info(ChatColor.GREEN + "Hologramme '" + name + "' créé et ajouté au manager avec succès.");
             } else {
                 plugin.getLogger().log(Level.SEVERE, "L'API FancyHolograms a retourné 'null' lors de la création de l'hologramme '" + name + "'.");
             }

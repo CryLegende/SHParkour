@@ -54,7 +54,6 @@ public final class SHParkour extends JavaPlugin {
         if (shInventoryPlugin instanceof SHInventoryPages && shInventoryPlugin.isEnabled()) {
             this.shInventoryPagesAPI = ((SHInventoryPages) shInventoryPlugin).getApi();
             if (this.shInventoryPagesAPI != null) {
-                getLogger().info("Successfully hooked into SHInventoryPages API.");
             } else {
                 getLogger().warning("Could not retrieve SHInventoryPages API, page switch blocking will not work.");
             }
@@ -103,7 +102,6 @@ public final class SHParkour extends JavaPlugin {
         // Sauvegarde périodique : sans elle, un arrêt brutal perdait les records faits depuis la dernière déconnexion.
         getServer().getScheduler().runTaskTimer(this, playerDataManager::savePlayerDataAsync, 6000L, 6000L);
 
-        getLogger().info("SHParkour a été activé avec succès !");
     }
 
     @Override
@@ -121,7 +119,6 @@ public final class SHParkour extends JavaPlugin {
         if (network != null) {
             network.stop(); // termine les écritures en cours
         }
-        getLogger().info("SHParkour a été désactivé.");
     }
 
     /**
